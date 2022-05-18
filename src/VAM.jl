@@ -2,8 +2,8 @@ module VAM
 
 mutable struct VamModel
 	
-    k::int # current system
-    nb_system::int #number of system
+    k::Int # current system
+    nb_system::Int #number of system
 
 	nbPM::Int
     idMod::Int
