@@ -44,11 +44,11 @@ mutable struct Model
 
     comp::Compute
 
-	models::[]Any # MaintenanceModel defined later and 
+	models::Vector{Any} # MaintenanceModel defined later and 
 
-	family::Any #::FamilyModel
+	family #::FamilyModel
 
-	maintenance_policy::Any#::MaintenancePolicy
+	maintenance_policy#::MaintenancePolicy
 end
 
 # 	FamilyModel* get_family() {
