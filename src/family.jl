@@ -54,7 +54,10 @@ end
 #   }
 # };
 
-# class WeibullFamilyModel : public FamilyModel {
+struct WeibullFamilyModel <: FamilyModel
+    α::Float64
+    β::Float64
+end
 # public:
 #   WeibullFamilyModel(NumericVector par) {
 #     nb_params_=2;
@@ -134,8 +137,11 @@ end
  
 # };
 
-# // Thanks to Cecile Chauvel
-# class LogLinearFamilyModel : public FamilyModel {
+
+struct LogLinearFamilyModel <:  FamilyModel
+    α::Float64
+    β::Float64
+end
 #   public:
 #     LogLinearFamilyModel(NumericVector par) {
 #       nb_params_=2;
@@ -267,7 +273,11 @@ end
 
 # };
 
-# class Weibull3FamilyModel : public FamilyModel {
+struct Weibull3FamilyModel <: FamilyModel
+    α::Float64
+    β::Float64
+    c::Float64
+end
 # public:
 #   Weibull3FamilyModel(NumericVector par) {
 #     nb_params_=3;

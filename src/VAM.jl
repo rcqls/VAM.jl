@@ -1,6 +1,6 @@
 module VAM
 
-export VamModel
+export Model
 
 include("compute.jl")
 include("model.jl")

@@ -1,5 +1,5 @@
 struct MaintenanceModel
-    model::VamModel
+    model::Model
     id::Int
     id_params::Int
 end

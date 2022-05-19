@@ -1,5 +1,5 @@
 
-mutable struct VamModel
+mutable struct Model
 	
     k::Int # current system
     nb_system::Int #number of system
