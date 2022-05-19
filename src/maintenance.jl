@@ -1,5 +1,4 @@
 mutable struct MaintenanceModel
-    model::Model
     id::Int
     id_params::Int
 end

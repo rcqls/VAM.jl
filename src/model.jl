@@ -9,7 +9,7 @@ mutable struct Model
     nb_paramsFamily::Int
     nb_paramsCov::Int
 
-	data #::List # TODO
+	data::Vector{DataFrame} #::List # TODO
 
 	#Additional Covariates stuff
 	data_cov #::DataFrame
