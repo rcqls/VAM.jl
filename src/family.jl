@@ -1,4 +1,4 @@
-struct FamilyModel
+mutable struct FamilyCompute
     dHR::Vector{Float64}
     dHL::Vector{Float64}
     dhR::Vector{Float64}
@@ -9,6 +9,8 @@ struct FamilyModel
     dhd::Matrix{Float64}
     nb_params::Int
 end
+
+abstract type FamilyModel end
 
 #   virtual NumericVector get_params() = 0;
 
@@ -54,9 +56,10 @@ end
 #   }
 # };
 
-struct WeibullFamilyModel <: FamilyModel
+mutable struct WeibullFamilyModel <: FamilyModel
     α::Float64
     β::Float64
+    comp::FamilyCompute
 end
 # public:
 #   WeibullFamilyModel(NumericVector par) {
@@ -138,9 +141,10 @@ end
 # };
 
 
-struct LogLinearFamilyModel <:  FamilyModel
+mutable struct LogLinearFamilyModel <:  FamilyModel
     α::Float64
     β::Float64
+    comp::FamilyCompute
 end
 #   public:
 #     LogLinearFamilyModel(NumericVector par) {
@@ -273,10 +277,11 @@ end
 
 # };
 
-struct Weibull3FamilyModel <: FamilyModel
+mutable struct Weibull3FamilyModel <: FamilyModel
     α::Float64
     β::Float64
     c::Float64
+    comp::FamilyCompute
 end
 # public:
 #   Weibull3FamilyModel(NumericVector par) {

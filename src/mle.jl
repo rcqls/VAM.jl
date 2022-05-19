@@ -1,4 +1,4 @@
-struct MLE
+mutable struct MLE
     model::Model
     leftCensors::Vector{Int} #CAREFUL: this is a vector of indices!
     leftCensor::Int #leftCensor for current system
