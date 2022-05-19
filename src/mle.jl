@@ -3,7 +3,7 @@ mutable struct MLE
     leftCensors::Vector{Int} #CAREFUL: this is a vector of indices!
     leftCensor::Int #leftCensor for current system
 
-    comp::MLECompute
+    comp::Compute
 end
 
 # public:

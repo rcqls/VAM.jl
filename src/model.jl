@@ -1,4 +1,3 @@
-
 mutable struct Model
 	
     k::Int # current system

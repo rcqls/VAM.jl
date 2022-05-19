@@ -4,6 +4,8 @@ mutable struct MaintenanceModel
     id_params::Int
 end
 
+abstract type AbstractMaintenanceModel end
+
 
     # MaintenanceModel(VamModel* model_) {
     # 	model = model_;
@@ -31,7 +33,7 @@ end
     #     id_params=id_params_;
     # }
 
-mutable struct ARA1 <: MaintenanceModel
+mutable struct ARA1 <: AbstractMaintenanceModel
     ρ::Float64
 end
 
@@ -58,7 +60,7 @@ end
 
     # void update(bool with_gradient,bool with_hessian);
 
-mutable struct ARAInf <: MaintenanceModel 
+mutable struct ARAInf <: AbstractMaintenanceModel 
 	ρ::Float64
 end
 
@@ -86,7 +88,7 @@ end
     # void update(bool with_gradient,bool with_hessian);
 
 
-struct AGAN <: MaintenanceModel
+struct AGAN <: AbstractMaintenanceModel
 end
 # public:
 
@@ -112,7 +114,7 @@ end
 
 # };
 
-struct ABAO <: MaintenanceModel
+struct ABAO <: AbstractMaintenanceModel
 end
 
 # public:
@@ -139,7 +141,7 @@ end
 
 # };
 
-struct AGAP <: MaintenanceModel
+struct AGAP <: AbstractMaintenanceModel
 end
 
 # public:
@@ -166,8 +168,8 @@ end
 
 # };
 
-mutable struct QAGAN <: MaintenanceModel
-    ρ::Float
+mutable struct QAGAN <: AbstractMaintenanceModel
+    ρ::Float64
 end
 
 # public:
@@ -194,7 +196,7 @@ end
 
 # };
 
-mutable struct QR <: MaintenanceModel
+mutable struct QR <: AbstractMaintenanceModel
     ρ::Float64
 end
 
@@ -223,8 +225,7 @@ end
 
 #     void update(bool with_gradient,bool with_hessian);
 
-struct F_GQR
-end
+abstract type F_GQR end
 # public:
 #     virtual double eval(double x) = 0;
 # };
@@ -256,7 +257,7 @@ end
 
 # };
 
-mutable struct GQR <: MaintenanceModel
+mutable struct GQR <: AbstractMaintenanceModel
     ρ::Float64
     K::Float64
     f::F_GQR
@@ -299,7 +300,7 @@ end
 
 #     void update(bool with_gradient,bool with_hessian);
 
-mutable struct GQR_ARA1 <:  MaintenanceModel
+mutable struct GQR_ARA1 <:  AbstractMaintenanceModel
     ρQR::Float64
     ρARA::Float64
     K::Float64
@@ -345,7 +346,7 @@ end
     # void update(bool with_gradient,bool with_hessian);
 
 
-mutable struct GQR_ARAInf <:  MaintenanceModel
+mutable struct GQR_ARAInf <:  AbstractMaintenanceModel
     ρQR::Float64
     ρARA::Float64
     K::Float64
@@ -392,7 +393,7 @@ end
 
 #     void update(bool with_gradient,bool with_hessian);
 
-mutable struct ARAm <: MaintenanceModel
+mutable struct ARAm <: AbstractMaintenanceModel
     ρ::Float64
     m::Int
 end
@@ -424,7 +425,7 @@ end
 #     void update(bool with_gradient,bool with_hessian);
 
 
-mutable struct GQR_ARAm <: MaintenanceModel
+mutable struct GQR_ARAm <: AbstractMaintenanceModel
     ρQR::Float64
     ρARA::Float64
     K::Float64
