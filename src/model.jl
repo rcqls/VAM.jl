@@ -46,9 +46,9 @@ mutable struct Model
 
 	models::[]Any # MaintenanceModel defined later and 
 
-	family #::FamilyModel
+	family::Any #::FamilyModel
 
-	maintenance_policy #::MaintenancePolicy
+	maintenance_policy::Any#::MaintenancePolicy
 end
 
 # 	FamilyModel* get_family() {
