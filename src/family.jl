@@ -22,31 +22,31 @@ abstract type FamilyModel end
 mutable struct WeibullFamilyModel <: FamilyModel
     α::Float64
     β::Float64
-    comp::FamilyCompute
+    # comp::FamilyCompute
 end
 
-hazardRate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.β * x^(f.β - 1) )
-inverseHazardRate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : (x/f.α/f.β)^(1/(f.β-1)))
-cumulativeHazardRate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * x^f.β)
-inverseCumulativeHazardRate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : (x/f.α)^(1/f.β))
-derivativeHasardRate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.β * (f.β - 1) * x^(f.β - 2) )
+hazard_rate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.β * x^(f.β - 1) )
+inverse_hazard_rate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : (x/f.α/f.β)^(1/(f.β-1)))
+cumulative_hazard_rate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * x^f.β)
+inverse_cumulative_hazard_rate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : (x/f.α)^(1/f.β))
+derivative_hasard_rate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.β * (f.β - 1) * x^(f.β - 2) )
 
 const LDorder = 5
 const bxLim = 0.000001
 mutable struct LogLinearFamilyModel <:  FamilyModel
     α::Float64
     β::Float64
-    comp::FamilyCompute
+    # comp::FamilyCompute
 end
 
-hazardRate(f::LogLinearFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * exp(f.β * x) )
-inverseHazardRate(f::LogLinearFamilyModel, x::Float64)::Float64 = log(x/f.α)/f.β
-function cumulativeHazardRate(f::LogLinearFamilyModel, x::Float64)::Float64
+hazard_rate(f::LogLinearFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * exp(f.β * x) )
+inverse_hazard_rate(f::LogLinearFamilyModel, x::Float64)::Float64 = log(x/f.α)/f.β
+function cumulative_hazard_rate(f::LogLinearFamilyModel, x::Float64)::Float64
     res::Float64
     if abs(f.β*x) < bxLim 
       prec = f.β * x/2
       res = 1 + prec
-      for i in 1..LDorder
+      for i in 1:LDorder
         prec = prec * f.β*x / (i+1)
         res += prec
       end
@@ -56,18 +56,18 @@ function cumulativeHazardRate(f::LogLinearFamilyModel, x::Float64)::Float64
     end
     return res
 end
-inverseCumulativeHazardRate(f::LogLinearFamilyModel, x::Float64)::Float64 = log(1 + x * f.β / f.α) / f.β
-derivativeHasardRate(f::LogLinearFamilyModel, x::Float64)::Float64 = (x<0 ? 0 : f.α * f.β * exp(f.β * x))
+inverse_cumulative_hazard_rate(f::LogLinearFamilyModel, x::Float64)::Float64 = log(1 + x * f.β / f.α) / f.β
+derivative_hasard_rate(f::LogLinearFamilyModel, x::Float64)::Float64 = (x<0 ? 0 : f.α * f.β * exp(f.β * x))
 
 mutable struct Weibull3FamilyModel <: FamilyModel
     α::Float64
     β::Float64
     δ::Float64
-    comp::FamilyCompute
+    # comp::FamilyCompute
 end
 
-hazardRate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.β * (x + f.δ)^(f.β - 1) )
-inverseHazardRate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : (x/f.α/f.β)^(1/(f.β-1)) - f.δ)
-cumulativeHazardRate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * ((x + f.δ)^f.β - x^f.β) )
-inverseCumulativeHazardRate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : (f.δ^f.β + x/f.α) ^ (1/f.β) - f.δ)
-derivativeHasardRate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.β * (f.β - 1) * (x + f.δ)^(f.β - 2) )
+hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.β * (x + f.δ)^(f.β - 1) )
+inverse_hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : (x/f.α/f.β)^(1/(f.β-1)) - f.δ)
+cumulative_hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * ((x + f.δ)^f.β - x^f.β) )
+inverse_cumulative_hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : (f.δ^f.β + x/f.α) ^ (1/f.β) - f.δ)
+derivative_hasard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.β * (f.β - 1) * (x + f.δ)^(f.β - 2) )

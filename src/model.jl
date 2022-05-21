@@ -1,4 +1,4 @@
-mutable struct Model
+mutable struct Model <: AbstractModel
 	
     k::Int # current system
     nb_system::Int #number of system
@@ -43,11 +43,11 @@ mutable struct Model
 
     comp::Compute
 
-	models::Vector{Any} # MaintenanceModel defined later and 
+	models::Vector{AbstractMaintenanceModel}
 
-	family #::FamilyModel
+	family::FamilyModel
 
-	maintenance_policy#::MaintenancePolicy
+	maintenance_policy::AbstractMaintenancePolicy
 end
 
 # 	FamilyModel* get_family() {
