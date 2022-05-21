@@ -8,7 +8,7 @@ function init(sim::Sim, cache_size::Int)
     sim.model.Vright=0
     sim.model.A=1
     sim.model.k=0
-    for i in 0:(model->nbPM + 1) 
+    for i in 0:(model.nbPM + 1) 
         init(sim.model.models[i])
     end
     # size=cache_size_+1;cache_size=cache_size_;
