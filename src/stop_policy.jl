@@ -1,25 +1,13 @@
 abstract type StopPolicy end
 
-# StopPolicy* newStopPolicy(SimVam* sim,List policy);
+function first(sp::StopPolicy); end
 
 struct SizeGreaterThanStopPolicy <: StopPolicy
     size::Int
 end
-    # public:
-#     SizeGreaterThanStopPolicy(SimVam* sim_,int size_): StopPolicy(sim_) {
-#         size=size_;
-#     }
 
-#     ~SizeGreaterThanStopPolicy() {};
+ok(sim::Sim, sp::SizeGreaterThanStopPolicy)::Bool = sim.model.k < sp.size
 
-    # bool ok();
-
-	# 	void first() {};
-
-    # int size;
-
-
-# };
 
 # //M is for CM or PM, type=-1 or 1,2,...
 
@@ -28,142 +16,120 @@ struct SizeOfTypeGreaterThanStopPolicy <:StopPolicy
     type::Int
     count::Int
 end
-#     public:
-#     SizeOfTypeGreaterThanStopPolicy(SimVam* sim_,int type_,int size_): StopPolicy(sim_) {
-#         type=type_;
-#         size=size_;
-#         count=0;
-#     }
 
-#     ~SizeOfTypeGreaterThanStopPolicy() {};
-
-#     bool ok();
-
-# 		void first() {};
-
-#     int size;
-
-#     int type;
-
-#     int count;
-
-# };
-
-struct TimeGreaterThanCensorshipStopPolicy <: StopPolicy
-    to_init::Bool
-    time::Float64
-    #expr::Language
-    #env::Environment
+function ok(sim::Sim, sp::SizeOfTypeGreaterThanStopPolicy)::Bool
+    # //incr counter
+    # //printf("k=%d,t=%lf,ty=%d ->",mod->k,mod->time[mod->k],mod->type[mod->k]);
+    if sim.model.k>0 && sim.model.type[sim.model.k] == sp.type
+        sp.count += 1
+        #//printf("type=%d,count=%d",type,count);
+    end
+    #//printf("\n");
+    return sp.count < sp.size
 end
-#     public:
-#     TimeGreaterThanCensorshipStopPolicy(SimVam* sim_,double time_,Language expr_,Environment env_): StopPolicy(sim_) {
-#         time=time_;expr=expr_;env=env_;
-# 				to_init=(time<0);
-#     }
 
-#     ~TimeGreaterThanCensorshipStopPolicy() {};
+### TODO LATER
+# struct TimeGreaterThanCensorshipStopPolicy <: StopPolicy
+#     to_init::Bool
+#     time::Float64
+#     #expr::Language
+#     #env::Environment
+# end
 
-#     bool ok();
+# function ok(sim::Sim, sp::TimeGreaterThanCensorshipStopPolicy)::Bool
+#     ok = sim.model.time[sim.model.k] < sp.time
+#     if !ok
+#         #//update result of sim!
+#         sim.model.time[sim.model.k]=sp.time
+#         si.model.type[sim.model.k]=0
+#     end
+#     return ok
+# end
 
-# 		void first();
-
-# 		bool to_init;
-		
-#     double time;
-
-# 		Language expr;
-
-# 		Environment env;
-
-
-# };
+# function TimeGreaterThanCensorshipStopPolicy::first() {
+#     //printf("time=%lf\n",time);
+#      if(to_init) {
+#        time=as<double>(Rf_eval(expr,env));
+#      };
+# }
 
 struct TimeGreaterThanStopPolicy <: StopPolicy
     time::Float64
 end
-# public:
-#     TimeGreaterThanStopPolicy(SimVam* sim_,double time_): StopPolicy(sim_) {
-#         time=time_;
-#     }
 
-#     ~TimeGreaterThanStopPolicy() {};
-
-#     bool ok();
-
-# 		void first() {};
-
-#     double time;
-
-
-# };
+ok(sim::Sim, sp::TimeGreaterThanStopPolicy)::Bool = sim.model.time[sim.model.k] < sp.time
 
 struct AndStopPolicy <: StopPolicy
     policies::Vector{StopPolicy}
 end
 
-# public:
-#     AndStopPolicy(SimVam* sim_,List policies_): StopPolicy(sim_) {
-#         for(
-#             List::iterator it=policies_.begin();
-#             it != policies_.end();
-#             ++it
-#         ) {
-#             List policy=*it;
-#             StopPolicy*  sp=newStopPolicy(sim_,policy);
-#             if(!(sp == NULL)) policies.push_back(sp);
-#         }
-#     }
-
-#     ~AndStopPolicy() {
-#         for(
-#             std::vector<StopPolicy*>::iterator it=policies.begin();
-#             it != policies.end();
-#             ++it
-#         ) {
-#             delete *it;
-#         }
-#     };
-
-#     bool ok();
-
-# 		void first();
-
-#     std::vector<StopPolicy*> policies;
-
-
-# };
-
 struct OrStopPolicy <: StopPolicy
     policies::Vector{StopPolicy}
 end
-# public:
-#     OrStopPolicy(SimVam* sim_,List policies_): StopPolicy(sim_) {
-#         for(
-#             List::iterator it=policies_.begin();
-#             it != policies_.end();
-#             ++it
-#         ) {
-#             List policy=*it;
-#             StopPolicy*  sp=newStopPolicy(sim_,policy);
-#             if(!(sp == NULL)) policies.push_back(sp);
-#         }
+
+function ok(sim::Sim, sp::AndStopPolicy)::Bool
+    ans = false
+    for policy in sp.policies 
+        if ok(sim, policy)
+            ans |= true; #every cond is tested because some init is done there!
+        end
+    end
+    return ans
+end
+
+function ok(sim::Sim, sp::ORStopPolicy)::Bool
+    ans = false
+    for policy in sp.policies 
+        if ok(sim, policy)
+            ans &= false; #every cond is tested because some init is done there!
+        end
+    end
+    return ans
+end
+
+
+# bool AndStopPolicy::ok() {
+#     bool ans=false;
+#     for(
+#         std::vector<StopPolicy*>::iterator it=policies.begin();
+#         it != policies.end();
+#         ++it
+#     ) {
+#         if((*it)->ok()) ans |= true; //every cond is tested because some init is done there!
 #     }
+#     return ans;
+# }
 
-#     ~OrStopPolicy() {
-#         for(
-#             std::vector<StopPolicy*>::iterator it=policies.begin();
-#             it != policies.end();
-#             ++it
-#         ) {
-#             delete *it;
-#         }
-#     };
-
-#     bool ok();
-
-# 		void first();
-
-#     std::vector<StopPolicy*> policies;
+# bool OrStopPolicy::ok() {
+#     bool ans=true;
+#     for(
+#         std::vector<StopPolicy*>::iterator it=policies.begin();
+#         it != policies.end();
+#         ++it
+#     ) {
+#         if(!(*it)->ok()) ans &= false; //every cond is tested because some init is done there!
+#     }
+#     return ans;
+# }
 
 
-# };
+# // Exactly the same first method for the following classes
+# void AndStopPolicy::first() {
+#     for(
+#         std::vector<StopPolicy*>::iterator it=policies.begin();
+#         it != policies.end();
+#         ++it
+#     ) {
+#         (*it)->first();
+#     }
+# }
+
+# void OrStopPolicy::first() {
+#     for(
+#         std::vector<StopPolicy*>::iterator it=policies.begin();
+#         it != policies.end();
+#         ++it
+#     ) {
+#         (*it)->first();
+#     }
+# }
