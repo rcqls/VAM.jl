@@ -1,4 +1,4 @@
-struct Compute
+mutable struct Compute
     S1
     S2
     S0
