@@ -7,20 +7,25 @@ abstract type AbstractMaintenanceModel end
 mutable struct ARA1 <: AbstractMaintenanceModel
     ρ::Float64
 end
+nb_params(m::ARA1) = 1
 mutable struct ARAInf <: AbstractMaintenanceModel 
 	ρ::Float64
 end
+nb_params(m::ARAInf) = 1
 
 struct AGAN <: AbstractMaintenanceModel
 end
+nb_params(m::AGAN) = 0
 struct ABAO <: AbstractMaintenanceModel
 end
+nb_params(m::ABAO) = 1
 
 struct AGAP <: AbstractMaintenanceModel
 end
 mutable struct QAGAN <: AbstractMaintenanceModel
     ρ::Float64
 end
+nb_params(m::QAGAN) = 1
 
 mutable struct QR <: AbstractMaintenanceModel
     ρ::Float64
@@ -41,22 +46,26 @@ mutable struct GQR <: AbstractMaintenanceModel
     K::Float64
     f::F_GQR
 end
+nb_params(m::GQR) = 1
 mutable struct GQR_ARA1 <:  AbstractMaintenanceModel
     ρQR::Float64
     ρARA::Float64
     K::Float64
     f::F_GQR
 end
+nb_params(m::GQR_ARA1) = 2
 mutable struct GQR_ARAInf <:  AbstractMaintenanceModel
     ρQR::Float64
     ρARA::Float64
     K::Float64
     f::F_GQR
 end
+nb_params(m::GQR_ARAInf) = 2
 mutable struct ARAm <: AbstractMaintenanceModel
     ρ::Float64
     m::Int
 end
+nb_params(m::ARAm) = 1
 mutable struct GQR_ARAm <: AbstractMaintenanceModel
     ρQR::Float64
     ρARA::Float64
@@ -64,6 +73,7 @@ mutable struct GQR_ARAm <: AbstractMaintenanceModel
     f::F_GQR
     m::Int
 end
+nb_params(m::GQR_ARAm) = 2
 
 function update(m::ARA1, model::AbstractModel; with_gradient::Bool=false,with_hessian::Bool=false)
     # int i;

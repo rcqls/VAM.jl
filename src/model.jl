@@ -34,18 +34,68 @@ mutable struct Model <: AbstractModel
 	dVleft::Vector{Float64}
     dVright::Vector{Float64}
     
-	d2Vleft::Matrix{Float64}
-    d2Vright::Matrix{Float64}
+	d2Vleft::Vector{Float64}
+    d2Vright::Vector{Float64}
 
 	A::Float64
 	dA::Vector{Float64}
-	d2A::Matrix{Float64}
+	d2A::Vector{Float64}
 
 	VR_prec::Float64
 	dVR_prec::Float64
-    d2VR_prec::Matrix{Float64}
+    d2VR_prec::Vector{Float64}
 
 	Model() = new()
+end
+
+function init!(m::Model)
+		m.k = 0  # current system
+		m.nb_system = 1 #number of system
+		if isdefined(m, :models) && length(m.models) > 0
+			m.nbPM = length(m.models) - 1
+		else
+			m.nbPM = 0
+		end
+		m.idMod = 0
+		m.nb_params_maintenance=0
+		for mm in m.models
+			m.nb_params_maintenance += nb_params(mm)
+		end
+		m.nb_params_family = nb_params(m.family)
+		m.nb_params_cov = 0
+		m.mu = LDorder
+
+		m.data=DataFrame[]
+
+		#Additional Covariates stuff
+		# data_cov::DataFrame
+		# params_cov::Vector{Float64}
+		# sum_cov::Float64 #to save the computation
+
+		## internal
+		m.time = Float64[]
+		m.type = Int[]
+
+		m.indType = 0
+
+		m.Vleft = 0
+		m.Vright = 0
+		m.hVleft = 0
+
+
+		m.dVleft = zeros(m.nb_params_maintenance)
+		m.dVright = zeros(m.nb_params_maintenance)
+		
+		m.d2Vleft = zeros(m.nb_params_maintenance)
+		m.d2Vright::Matrix{Float64}
+
+		m.A::Float64
+		m.dA::Vector{Float64}
+		m.d2A::Matrix{Float64}
+
+		m.VR_prec::Float64
+		m.dVR_prec::Float64
+		m.d2VR_prec::Matrix{Float64}
 end
 
 virtual_age(m::Model, x::Float64)::Float64 = m.Vright + (x  - m.time[m.k]) * m.A

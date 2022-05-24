@@ -1,6 +1,35 @@
 abstract type AbstractMaintenancePolicy end
-abstract type MaintenancePolicyWithExternalModel <: AbstractMaintenancePolicy end
 
+abstract type MaintenancePolicyWithExternalModel <: AbstractMaintenancePolicy end
+function update_external_model(mp::MaintenancePolicyWithExternalModel, model::AbstractModel)
+    mod = mp.model # external model attached to MP
+
+    if isnothing(mod)
+        return model
+    else
+
+        
+        # //update everything needed to compute the update step (see end of simulation step)
+        mod.k = model.k
+        mod.time = model.time  
+        mod.type = model.type
+        if mod.k > 0 # Not at the init step!
+            ## VERY VERY IMPORTANT: Since we want to update at previous step
+            mod.k -= 1
+
+            # And then as what it is applied at the end of the simulation step but for mod instead of model!
+            update_Vleft(mod) #, false,false) #; //mod->idMod is not yet updated!
+            mod.idMod = model.idMod #//mod->idMod is then updated for the next task!
+            update(mod.models[mod.idMod]) #,false,false)
+        end
+        if model.nb_paramsCov > 0
+            mod.data_cov=model.data_cov
+            mod.params_cov=model.params_cov
+            mod.nb_paramsCov=model.nb_params_cov
+        end
+    end
+    
+end
 struct PeriodicMaintenancePolicy <: AbstractMaintenancePolicy
     from::Float64
     by::Float64
@@ -46,8 +75,9 @@ type_size(mp::AtTimesMaintenancePolicy)::Int = mp.differentTypeIfCM ? 2 : 1
 
 struct AtIntensityMaintenancePolicy <: MaintenancePolicyWithExternalModel
     level::Float64
-    #external_model::AbstractModel
+    model::Union{Nothing, AbstractModel}
 end
+AtIntensityMaintenancePolicy(level::Float64) = AtIntensityMaintenancePolicy(level, nothing)
 
 type_size(mp::AtIntensityMaintenancePolicy)::Int = 1
 
@@ -89,4 +119,22 @@ function type_size(mp::MaintenancePolicyList)::Int
         s += type_size(policy)
     end
     return s;
+end
+
+function first(mp::MaintenancePolicyList)
+	for policy in mp.policies
+        first(policy)
+    end
+end
+
+
+function update(mp::MaintenancePolicyList,model::AbstractModel)
+    time, type =update(mp.policies[1], model);
+    for policy in mp.policies[2:end]
+    	time2, type2 = update(policy, model)
+    	if time2 < time 
+            time, type = time2, type2
+        end
+    end
+    return (time=time, type=type)
 end
