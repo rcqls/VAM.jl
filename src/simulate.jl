@@ -8,7 +8,7 @@ function init(sim::Sim, cache_size::Int)
     sim.model.Vright=0
     sim.model.A=1
     sim.model.k=0
-    for i in 0:(model.nbPM + 1) 
+    for i in 0:(sim.model.nbPM + 1) 
         init(sim.model.models[i])
     end
     # size=cache_size_+1;cache_size=cache_size_;
@@ -74,7 +74,7 @@ function simulate(sim::Sim, nbsim::Int)::DataFrame
             sim.model.time[sim.model.k + 1]=timePM
             # NumericVector tmp2=timeAndTypePM["type"];
             # int typePM=tmp2[0];
-            typePM = timeAndTypePM.type[1]
+            typePM = timeAndTypePM.type
             #//DEBUG[distrib type1]: typeCptAP++;if(typePM==1) type1CptAP++;printf("typePM=%d\n",typePM);
             sim.model.type[sim.model.k + 1]=typePM
             idMod=timeAndTypePM.type

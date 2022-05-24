@@ -2,13 +2,11 @@ mutable struct Model <: AbstractModel
 	
     k::Int # current system
     nb_system::Int #number of system
-
 	nbPM::Int
     idMod::Int
 	nb_params_maintenance::Int
     nb_params_family::Int
     nb_params_cov::Int
-
 	mu::Int
 
 
@@ -47,7 +45,7 @@ mutable struct Model <: AbstractModel
 	dVR_prec::Float64
     d2VR_prec::Matrix{Float64}
 
-	comp::Compute
+	Model() = new()
 end
 
 virtual_age(m::Model, x::Float64)::Float64 = m.Vright + (x  - m.time[m.k]) * m.A
@@ -255,3 +253,5 @@ end
 # 	}
 # 	return sum_cov;
 # }
+
+has_maintenance_policy(m::Model)::Bool = isdefined(m,:maintenance_policy)

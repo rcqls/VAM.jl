@@ -1,10 +1,40 @@
 # Time & Type ~ (ABAO()|Weibull(1,3)
 # Time & Type ~ (ARA1(~Beta(1.08,0.108)) | Weibull(~NonInform(),~Gamma(32,0.097)))
 
+# ~ (ARA1(.5) | Weibull(0.01,2.5)) & (ARAInf(.7)+ARAInf(.3)|Periodic(12,prob=c(0.6,0.4))))
+
+# Systeme & Temps & Type ~ (ARA1(.5) | Weibull(0.01,2.5)) & (ARAInf(.7)+ARAInf(.3)|Periodic(12,prob=c(0.6,0.4)))
+
 macro model(ex_f)
-    if Meta.isexpr(ex_f, :call) && ex_f.args[1] == :~
-        return ex_f.args 
+    m = Model()
+    if Meta.isexpr(ex_f, :call)
+        ex_m = ex_f
+        def_names = ["Time", "Type"] # default names
+        ## model detection
+        if ex_f.args[1] == :&
+            ## No names given on the left side of :~ => def_names used
+            ex_m.args[2] = ex_m.args[2].args[2] # remove unused the tilde
+        elseif ex_f.args[1] == :~
+            ## Left part is names and right part is the model
+            def_names = map(ex_f.args[2].args[2:3]) do n
+                string(n)
+            end
+            ex_m = ex_f.args[3]
+        end
+        ## parsing model (ex_m)
+        m.models = AbstractMaintenanceModel[]
+        #print(ex_m.args)
+        if ex_m.args[2].args[1] == :|
+            push!(m.models,eval(ex_m.args[2].args[2])) # corrective maintenance
+            fm = ex_m.args[2].args[3]
+            fm.args[1] = Symbol(string(fm.args[1]) * "FamilyModel")
+            m.family = eval(fm)
+        end 
+        ## 
+        return m
+        # m.models.push(ex_f.args[])
     end
+    # return m
 end
 
 # parse_formula()
