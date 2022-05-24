@@ -22,8 +22,10 @@ abstract type FamilyModel end
 mutable struct WeibullFamilyModel <: FamilyModel
     α::Float64
     β::Float64
+    covariates::Union{Nothing, Vector{Any}}
     # comp::FamilyCompute
 end
+WeibullFamilyModel(α::Float64, β::Float64) = WeibullFamilyModel(α, β, nothing)
 
 hazard_rate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.β * x^(f.β - 1) )
 inverse_hazard_rate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : (x/f.α/f.β)^(1/(f.β-1)))
