@@ -1,11 +1,10 @@
 abstract type StopPolicy end
 
-function first(sp::StopPolicy); end
+init!(sp::StopPolicy) = nothing
 
 struct SizeGreaterThanStopPolicy <: StopPolicy
     size::Int
 end
-
 # //M is for CM or PM, type=-1 or 1,2,...
 
 struct SizeOfTypeGreaterThanStopPolicy <:StopPolicy

@@ -3,13 +3,11 @@ mutable struct Model <: AbstractModel
     k::Int # current system
     nb_system::Int #number of system
 	nbPM::Int
-    idMod::Int
+    id_mod::Int
 	nb_params_maintenance::Int
     nb_params_family::Int
     nb_params_cov::Int
 	mu::Int
-
-
 
 	data::Vector{DataFrame}
 	models::Vector{AbstractMaintenanceModel}
@@ -41,9 +39,11 @@ mutable struct Model <: AbstractModel
 	dA::Vector{Float64}
 	d2A::Vector{Float64}
 
-	VR_prec::Float64
-	dVR_prec::Float64
+	VR_prec::Vector{Float64}
+	dVR_prec::Vector{Float64}
     d2VR_prec::Vector{Float64}
+
+	comp::Compute
 
 	Model() = new()
 end
@@ -56,14 +56,14 @@ function init!(m::Model)
 		else
 			m.nbPM = 0
 		end
-		m.idMod = 0
+		m.id_mod = 0
 		m.nb_params_maintenance=0
-		for mm in m.models
+		for (id, mm) in enumerate(m.models)
 			m.nb_params_maintenance += nb_params(mm)
 		end
 		m.nb_params_family = nb_params(m.family)
 		m.nb_params_cov = 0
-		m.mu = LDorder
+		m.mu = max_memory(m)
 
 		m.data=DataFrame[]
 
@@ -86,22 +86,33 @@ function init!(m::Model)
 		m.dVleft = zeros(m.nb_params_maintenance)
 		m.dVright = zeros(m.nb_params_maintenance)
 		
-		m.d2Vleft = zeros(m.nb_params_maintenance)
-		m.d2Vright::Matrix{Float64}
+		nb2d = m.nb_params_maintenance * (m.nb_params_maintenance + 1) ÷ 2
 
-		m.A::Float64
-		m.dA::Vector{Float64}
-		m.d2A::Matrix{Float64}
+		m.d2Vleft = zeros(nb2d)
+		m.d2Vright = zeros(nb2d)
 
-		m.VR_prec::Float64
-		m.dVR_prec::Float64
-		m.d2VR_prec::Matrix{Float64}
+		m.A = 0
+		m.dA = zeros(m.nb_params_maintenance)
+		m.d2A = zeros(nb2d)
+		if m.mu > 0
+			m.VR_prec = zeros(m.mu)
+			m.dVR_prec = zeros(m.mu * m.nb_params_maintenance)
+			m.d2VR_prec = zeros(m.mu * nb2d)
+		end
+		return nothing
+end
+
+function init_compute!(m::Model)
+	init!(m.comp)
+	for mm in m.models
+		init!(mm)
+	end
 end
 
 virtual_age(m::Model, x::Float64)::Float64 = m.Vright + (x  - m.time[m.k]) * m.A
 virtual_age_inverse(m::Model, x::Float64) = (x - m.Vright) / m.A + m.time[m.k]
 
-function update_Vleft(m::Model;with_gradient::Bool, with_hessian::Bool)
+function update_Vleft!(m::Model;with_gradient::Bool=false, with_hessian::Bool=false)
 	# /*if(model->k < 10) printf("Vleft:%lf\n", model->Vleft);*/
 	m.Vleft = virtual_age(m, m.time[m.k + 1])
 	# //printf("Vleft:%lf\n", model->Vleft);
@@ -139,73 +150,6 @@ end
 # 	select_data(i);//Skipped if data is unset (see above)
 # 	return DataFrame::create(_["Time"]=time,_["Type"]=type);
 # };
-
-
-# void VamModel::set_models(List models_) {
-#     models=new MaintenanceModelList(models_,this);
-# }
-
-# void VamModel::set_family(List family_) {
-# 	family=newFamilyModel(family_);
-# }
-
-# void VamModel::set_maintenance_policy(List maintenance_policy_) {
-# 	maintenance_policy=newMaintenancePolicy(maintenance_policy_);
-# 	//if(maintenance_policy==NULL) printf("maintenance_policy is NULL\n");
-# };
-
-function init_computation_values(m::Model)
-	# int i;
-	# S1=0;S2=0;S0=0;S3=0;S4=0;
-	# Vleft=0;Vright=0;
-	# hVleft=0;
-	# A=1;
-	# for(i=0;i<nbPM + 1;i++) models->at(i)->init();
-end
-
-function init(m::Model) #List model_) {
-	# mu=model_["max_memory"];mu--;
-	# List models_=model_["models"];
-	# List family_=model_["family"];
-	# List maintenance_policy_=model_["pm.policy"];
-  	# set_models(models_);
-	# nbPM=models->size()-1;
-	# nb_paramsMaintenance=0;
-	# for(int i=0;i<nbPM + 1;i++) {
-	# 	nb_paramsMaintenance=nb_paramsMaintenance+models->at(i)->nb_params();
-	# }
-
-	# set_family(family_);
-	# nb_paramsFamily=family->nb_params();
-	# set_maintenance_policy(maintenance_policy_);
-
-	# set_covariates(model_);
-
-	# // S1=0;S2=0;S0=0;
-	# // Vleft=0;Vright=0;
-	# // hVleft=0;
-	# init_computation_values();
-	# //dS1=new double[nb_paramsMaintenance+nb_paramsFamily-1+nb_paramsCov];//for one trajectory we can factorize the effect of covariates on S1, consequently the derivatives on covariates parameters are only considered in the cumulator of S1 in the mle object.
-	# dS1=new double[nb_paramsMaintenance+nb_paramsFamily-1];
-	# dS2=new double[nb_paramsMaintenance+nb_paramsFamily-1];
-	# dS3=new double[nb_paramsMaintenance];
-	# if(nb_paramsCov>0) dS4=new double[nb_paramsCov];
-	# //d2S1=new double[(nb_paramsMaintenance+nb_paramsFamily-1+nb_paramsCov)*(nb_paramsMaintenance+nb_paramsFamily+nb_paramsCov)/2];//inferior diagonal part of the hessian matrice by lines //idem dS1
-	# d2S1=new double[(nb_paramsMaintenance+nb_paramsFamily-1)*(nb_paramsMaintenance+nb_paramsFamily)/2];//inferior diagonal part of the hessian matrice by lines
-	# d2S2=new double[(nb_paramsMaintenance+nb_paramsFamily-1)*(nb_paramsMaintenance+nb_paramsFamily)/2];//inferior diagonal part of the hessian matrice by lines
-	# d2S3=new double[(nb_paramsMaintenance)*(nb_paramsMaintenance+1)/2];//inferior diagonal part of the hessian matrice by lines
-	# dVright=new double[nb_paramsMaintenance];
-	# dVleft=new double[nb_paramsMaintenance];
-	# d2Vright=new double[(nb_paramsMaintenance)*(nb_paramsMaintenance+1)/2];//inferior diagonal part of the hessian matrice by lines
-	# d2Vleft=new double[(nb_paramsMaintenance)*(nb_paramsMaintenance+1)/2];//inferior diagonal part of the hessian matrice by lines
-	# dA=new double[nb_paramsMaintenance];
-	# d2A=new double[(nb_paramsMaintenance)*(nb_paramsMaintenance+1)/2];//inferior diagonal part of the hessian matrice by lines
-	# if(mu>0){
-	# 	VR_prec=new double[mu];
-	# 	dVR_prec=new double[mu*nb_paramsMaintenance];//dVR_prec[i*nb_paramsMaintenance+j] for 0<=i<mu and 0<=j<nb_paramsMaintenance, corresponds to the j th partial derivative corresponding to the i th last inter-maintenance time effect
-	# 	d2VR_prec=new double[mu*(nb_paramsMaintenance)*(nb_paramsMaintenance+1)/2];//d2VR_prec[i*(nb_paramsMaintenance)*(nb_paramsMaintenance+1)/2+j] for 0<=i<mu and 0<=j<(nb_paramsMaintenance)*(nb_paramsMaintenance+1)/2, inferior diagonal part of the hessian matrice by lines
-	# }
-end
 
 function init_virtual_age_infos(m::Model)
 		# int i;
@@ -304,4 +248,20 @@ end
 # 	return sum_cov;
 # }
 
-has_maintenance_policy(m::Model)::Bool = isdefined(m,:maintenance_policy)
+has_maintenance_policy(m::Model)::Bool = isdefined(m,:maintenance_policy) || isnothing(m.maintenance_policy)
+
+function max_memory(m::Model)::Int
+	maxmem = 1
+	for mm in m.models
+		if isdefined(mm,:m)
+			if mm.m > maxmem
+				maxmem = mm.m
+			end
+		end
+	end
+	return maxmem
+end
+
+function save_id_mod(m::Model, id_mod::Int)
+	m.id_mod = id_mod
+end

@@ -30,7 +30,7 @@ function update_external_model(mp::MaintenancePolicyWithExternalModel, model::Ab
     end
     
 end
-struct PeriodicMaintenancePolicy <: AbstractMaintenancePolicy
+mutable struct PeriodicMaintenancePolicy <: AbstractMaintenancePolicy
     from::Float64
     by::Float64
     prob::Vector{Float64}
@@ -50,7 +50,7 @@ function update(mp::PeriodicMaintenancePolicy, model::AbstractModel)::NamedTuple
  
 	r=rand(1)[1]
     t = 0
-	for p in prob[1:end-1]
+	for p in mp.prob[1:end-1]
         if r < p
             break
         else 
@@ -63,7 +63,7 @@ function update(mp::PeriodicMaintenancePolicy, model::AbstractModel)::NamedTuple
 end
 
 
-struct AtTimesMaintenancePolicy <:  AbstractMaintenancePolicy
+mutable struct AtTimesMaintenancePolicy <:  AbstractMaintenancePolicy
     times::Vector{Float64}
     i::Int
     k::Int
@@ -73,24 +73,34 @@ end
 
 type_size(mp::AtTimesMaintenancePolicy)::Int = mp.differentTypeIfCM ? 2 : 1
 
-struct AtIntensityMaintenancePolicy <: MaintenancePolicyWithExternalModel
+mutable struct AtIntensityMaintenancePolicy <: MaintenancePolicyWithExternalModel
     level::Float64
     model::Union{Nothing, AbstractModel}
 end
 AtIntensityMaintenancePolicy(level::Float64) = AtIntensityMaintenancePolicy(level, nothing)
 
 type_size(mp::AtIntensityMaintenancePolicy)::Int = 1
+function update(mp::AtIntensityMaintenancePolicy, model::AbstractModel)::NamedTuple{(:time, :type), Tuple{Float64, Int64}}
+    
+    mod=update_external_model(mp, model)
+	u=mod.A
+	if mod.nb_params_cov>0 
+        # u *= exp(compute_covariates(mod))
+    end
+	# 	//ToRemove: double next_time2=model->virtual_age_inverse(model->family->inverse_hazardRate(level[0]));
+	time=virtual_age_inverse(mod,inverse_hazard_rate(mod.family, mp.level/u))
+    return (time=time, type=1)
+end
 
-
-struct AtVirtualAgeMaintenancePolicy <:  MaintenancePolicyWithExternalModel
-    level::Vector{Float64}
+mutable struct AtVirtualAgeMaintenancePolicy <:  MaintenancePolicyWithExternalModel
+    level::Float64
     external_model::AbstractModel
 end
 
 type_size(mp::AtVirtualAgeMaintenancePolicy)::Int = 1
 
 
-struct AtFailureProbabilityMaintenancePolicy <: AbstractMaintenancePolicy
+mutable struct AtFailureProbabilityMaintenancePolicy <: AbstractMaintenancePolicy
     level::Vector{Float64}
     external_model::AbstractModel
 end
