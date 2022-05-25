@@ -102,15 +102,15 @@ function update!(m::ARA1, model::AbstractModel; with_gradient::Bool=false,with_h
                     model.d2Vright[i * (i + 1) / 2 + j] += prov
                 end
             end
-            for j in 0:id_params
+            for j in 0:model.id_params
                 prov = model.dA[j] * (model.time[model.k] - model.time[model.k - 1])
-                model.d2VR_prec[id_params * (id_params + 1) / 2 + j] -= prov
-                model.d2Vright[id_params * (id_params + 1) / 2 + j] -= prov
+                model.d2VR_prec[model.id_params * (model.id_params + 1) / 2 + j] -= prov
+                model.d2Vright[model.id_params * (model.id_params + 1) / 2 + j] -= prov
             end
-            for i in id_params:(model.nb_params_maintenance - 1)
+            for i in model.id_params:(model.nb_params_maintenance - 1)
                 prov = model.dA[i] * (model.time[model.k] - model.time[model.k - 1])
-                model.d2VR_prec[i * (i + 1) / 2 + id_params] -= prov
-                model.d2Vright[i * (i + 1) / 2 + id_params] -= prov
+                model.d2VR_prec[i * (i + 1) / 2 + model.id_params] -= prov
+                model.d2Vright[i * (i + 1) / 2 + model.id_params] -= prov
             end
         else
            for i in 0:(model.nb_params_maintenance-1)
@@ -118,11 +118,11 @@ function update!(m::ARA1, model::AbstractModel; with_gradient::Bool=false,with_h
                     model.d2Vright[i * (i + 1) / 2 + j] += (1-m.ρ) * model.d2A[i * (i + 1) / 2 + j] * (model.time[model.k]-model.time[model.k - 1])
                 end
             end
-            for j in 0:id_params
-                model.d2Vright[id_params * (id_params + 1) / 2 + j] -= model.dA[j] * (model.time[model.k] - model.time[model.k - 1])
+            for j in 0:model.id_params
+                model.d2Vright[model.id_params * (model.id_params + 1) / 2 + j] -= model.dA[j] * (model.time[model.k] - model.time[model.k - 1])
             end
-            for i in id_params:(model.nb_params_maintenance - 1)
-                model.d2Vright[i * (i + 1) / 2 + id_params] -= model.dA[i]*(model.time[model.k]-model.time[model.k - 1])
+            for i in model.id_params:(model.nb_params_maintenance - 1)
+                model.d2Vright[i * (i + 1) / 2 + model.id_params] -= model.dA[i]*(model.time[model.k]-model.time[model.k - 1])
             end 
         end
     end
@@ -139,13 +139,13 @@ function update!(m::ARA1, model::AbstractModel; with_gradient::Bool=false,with_h
                 model.dVright[i] += prov
             end
             prov=model.A * (model.time[model.k] - model.time[model.k - 1])
-            model.dVR_prec[id_params] -= prov
-            model.dVright[id_params] -= prov
+            model.dVR_prec[model.id_params] -= prov
+            model.dVright[model.id_params] -= prov
         else
             for i in 0:(model.nb_params_maintenance - 1)
                 model.dVright[i] += (1 - m.ρ) * model.dA[i] * (model.time[model.k] - model.time[model.k - 1])
             end
-            model.dVright[id_params] -= model.A * (model.time[model.k] - model.time[model.k - 1])
+            model.dVright[model.id_params] -= model.A * (model.time[model.k] - model.time[model.k - 1])
         end
     end
     if nk > 1
@@ -168,18 +168,18 @@ function update!(m::ARAInf, model::AbstractModel;with_gradient::Bool=false,with_
     end
     if with_hessian
         nb2d = model.nb_params_maintenance * (model.nb_params_maintenance + 1) ÷ 2
-        iip = id_params * (id_params + 1) ÷ 2
+        iip = model.id_params * (model.id_params + 1) ÷ 2
         for k in nk:-1:1
             for i in 0:(model.nb_params_maintenance - 1)
                 for j in 0:i
                     model.d2VR_prec[k * nb2d + i * (i + 1) ÷ 2+j]=(1 - m.ρ) * model.d2VR_prec[(k - 1) * nb2d + i * (i + 1) ÷ 2 + j]
                 end
             end
-            for j in 0:id_params
-                model.d2VR_prec[k * nb2d + id_params * (id_params + 1) ÷ 2 + j] -= model.dVR_prec[(k - 1) * model.nb_params_maintenance + j]
+            for j in 0:model.id_params
+                model.d2VR_prec[k * nb2d + model.id_params * (model.id_params + 1) ÷ 2 + j] -= model.dVR_prec[(k - 1) * model.nb_params_maintenance + j]
             end
-            for i in id_params:(model.nb_params_maintenance - 1)
-                model.d2VR_prec[k * nb2d + i * (i + 1) ÷ 2 + id_params] -= model.dVR_prec[(k - 1) * model.nb_params_maintenance + i]
+            for i in model.id_params:(model.nb_params_maintenance - 1)
+                model.d2VR_prec[k * nb2d + i * (i + 1) ÷ 2 + model.id_params] -= model.dVR_prec[(k - 1) * model.nb_params_maintenance + i]
             end
         end
         if nk > 0
@@ -190,14 +190,14 @@ function update!(m::ARAInf, model::AbstractModel;with_gradient::Bool=false,with_
                     model.d2Vright[ii + j] = (1 - m.ρ) * model.d2Vleft[ii + j]
                 end
             end
-            for j in 0:id_params
+            for j in 0:model.id_params
                 model.d2VR_prec[iip + j] -= model.dA[j] * (model.time[model.k] - model.time[model.k - 1])
                 model.d2Vright[iip + j] -= model.dVleft[j]
             end
-            for i in id_params:(model.nb_params_maintenance - 1)
+            for i in model.id_params:(model.nb_params_maintenance - 1)
                 ii = i * ( i + 1) ÷ 2
-                model.d2VR_prec[ii + id_params] -= model.dA[i] * (model.time[model.k] - model.time[model.k - 1])
-                model.d2Vright[ii + id_params] -= model.dVleft[i]
+                model.d2VR_prec[ii + model.id_params] -= model.dA[i] * (model.time[model.k] - model.time[model.k - 1])
+                model.d2Vright[ii + model.id_params] -= model.dVleft[i]
             end
         else
             for i in 0:(model.nb_params_maintenance - 1)
@@ -206,11 +206,11 @@ function update!(m::ARAInf, model::AbstractModel;with_gradient::Bool=false,with_
                     model.d2Vright[ii + j] = (1 - m.ρ) * model.d2Vleft[ii + j]
                 end
             end
-            for j in 0:id_params
+            for j in 0:model.id_params
                 model.d2Vright[iip + j] -= model.dVleft[j]
             end
-            for i in id_params:(model.nb_params_maintenance - 1)
-                model.d2Vright[i * (i + 1) ÷ 2 + id_params] -= model.dVleft[i]
+            for i in model.id_params:(model.nb_params_maintenance - 1)
+                model.d2Vright[i * (i + 1) ÷ 2 + model.id_params] -= model.dVleft[i]
             end
         end
     end
@@ -219,20 +219,20 @@ function update!(m::ARAInf, model::AbstractModel;with_gradient::Bool=false,with_
             for i in 0:(model.nb_params_maintenance - 1)
                 model.dVR_prec[k * model.nb_params_maintenance + i] = (1 - m.ρ) * model.dVR_prec[(k - 1) * model.nb_params_maintenance + i]
             end
-            model.dVR_prec[k * model.nb_params_maintenance + id_params] -= model.VR_prec[k - 1]
+            model.dVR_prec[k * model.nb_params_maintenance + model.id_params] -= model.VR_prec[k - 1]
         end
         if nk > 0 
             for i in 0:(model.nb_params_maintenance - 1)
                 model.dVR_prec[i] = (1 - m.ρ) * model.dA[i] * (model.time[model.k] - model.time[model.k - 1])
                 model.dVright[i] = (1 - m.ρ) * model.dVleft[i]
             end
-            model.dVR_prec[id_params] -= model.A * (model.time[model.k] - model.time[model.k - 1])
-            model.dVright[id_params] -= model.Vleft
+            model.dVR_prec[model.id_params] -= model.A * (model.time[model.k] - model.time[model.k - 1])
+            model.dVright[model.id_params] -= model.Vleft
         else
             for i in 0:(model.nb_params_maintenance - 1)
                 model.dVright[i] = (1-m.ρ) * model.dVleft[i]
             end
-            model.dVright[id_params] -= model.Vleft
+            model.dVright[model.id_params] -= model.Vleft
         end
     end
     model.Vright = (1 - m.ρ) * model.Vleft
@@ -457,13 +457,13 @@ function update!(m::QR, model::AbstractModel;with_gradient::Bool=false,with_hess
                 end
             end
         end
-        for j in 0:id_params
-            #//i(<=id_params) and id respectively correspond to the column and line indices of (inferior diagonal part of) the hessian matrice
-            model.d2A[id_params*(id_params+1)/2+j] = model.d2A[id_params*(id_params+1)/2+j] + model.dA[j];
+        for j in 0:model.id_params
+            #//i(<=model.id_params) and id respectively correspond to the column and line indices of (inferior diagonal part of) the hessian matrice
+            model.d2A[model.id_params*(model.id_params+1)/2+j] = model.d2A[model.id_params*(model.id_params+1)/2+j] + model.dA[j];
         end
-        for i in id_params:(model.nb_params_maintenance - 1) 
-            #//id and i(>=id_params) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-            model.d2A[i*(i+1)/2+id_params] = model.d2A[i*(i+1)/2+id_params] + model.dA[i];
+        for i in model.id_params:(model.nb_params_maintenance - 1) 
+            #//id and i(>=model.id_params) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
+            model.d2A[i*(i+1)/2+model.id_params] = model.d2A[i*(i+1)/2+model.id_params] + model.dA[i];
         end
     end
     if with_gradient || with_hessian 
@@ -474,7 +474,7 @@ function update!(m::QR, model::AbstractModel;with_gradient::Bool=false,with_hess
                 model.dVR_prec[k*model.nb_params_maintenance+i]=0;
             end
         end
-        model.dA[id_params] = model.dA[id_params] +  model.A;
+        model.dA[model.id_params] = model.dA[model.id_params] +  model.A;
     end
     model.A=rho*model.A;
     model.Vright=0;
@@ -501,14 +501,14 @@ function update!(m::GQR, model::AbstractModel;with_gradient::Bool=false,with_hes
                 end
             end
         end
-        for j in 0:id_params
-            #//i(<=id_params) and id respectively correspond to the column and line indices of (inferior diagonal part of) the hessian matrice
-            model.d2A[id_params*(id_params+1)/2+j] = model.d2A[id_params*(id_params+1)/2+j] + pow(rho,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho*model.dA[j];
+        for j in 0:model.id_params
+            #//i(<=model.id_params) and id respectively correspond to the column and line indices of (inferior diagonal part of) the hessian matrice
+            model.d2A[model.id_params*(model.id_params+1)/2+j] = model.d2A[model.id_params*(model.id_params+1)/2+j] + pow(rho,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho*model.dA[j];
         end
-        model.d2A[id_params*(id_params+1)/2+id_params] = model.d2A[id_params*(id_params+1)/2+id_params] + pow(rho,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho*(2*model.dA[id_params]+(f.eval(K)-f.eval(K-1)-1)/rho*model.A);
-        for i in (id_params+1):(model.nb_params_maintenance - 1)
-            #//id and i(>=id_params) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-            model.d2A[i*(i+1)/2+id_params] = model.d2A[i*(i+1)/2+id_params] + pow(rho,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho*model.dA[i];
+        model.d2A[model.id_params*(model.id_params+1)/2+model.id_params] = model.d2A[model.id_params*(model.id_params+1)/2+model.id_params] + pow(rho,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho*(2*model.dA[model.id_params]+(f.eval(K)-f.eval(K-1)-1)/rho*model.A);
+        for i in (model.id_params+1):(model.nb_params_maintenance - 1)
+            #//id and i(>=model.id_params) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
+            model.d2A[i*(i+1)/2+model.id_params] = model.d2A[i*(i+1)/2+model.id_params] + pow(rho,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho*model.dA[i];
         end
     end
     if with_gradient || with_hessian
@@ -519,7 +519,7 @@ function update!(m::GQR, model::AbstractModel;with_gradient::Bool=false,with_hes
                 model.dVR_prec[k*model.nb_params_maintenance+i]=0;
             end
         end
-        model.dA[id_params] = model.dA[id_params] + pow(rho,f.eval(K)-f.eval(K-1)) * (f.eval(K)-f.eval(K-1))/rho * model.A;
+        model.dA[model.id_params] = model.dA[model.id_params] + pow(rho,f.eval(K)-f.eval(K-1)) * (f.eval(K)-f.eval(K-1))/rho * model.A;
     end
     model.A=pow(rho,f.eval(K)-f.eval(K-1))*model.A;
     model.Vright=0;
@@ -553,15 +553,15 @@ function update!(m::GQR_ARA1, model::AbstractModel;with_gradient::Bool=false,wit
                     model.d2Vright[i*(i+1)/2+j]+=prov;
                 end
             end
-            for j in 0:id_params
+            for j in 0:model.id_params
                 prov=model.dA[j]*(model.time[model.k]-model.time[model.k - 1]);
-                model.d2VR_prec[(id_params+1)*(id_params+2)/2+j] -= prov;
-                model.d2Vright[(id_params+1)*(id_params+2)/2+j] -= prov;
+                model.d2VR_prec[(model.id_params+1)*(model.id_params+2)/2+j] -= prov;
+                model.d2Vright[(model.id_params+1)*(model.id_params+2)/2+j] -= prov;
             end
-            for i in (id_params+1):(model.nb_params_maintenance - 1)
+            for i in (model.id_params+1):(model.nb_params_maintenance - 1)
                 prov=model.dA[i]*(model.time[model.k]-model.time[model.k - 1]);
-                model.d2VR_prec[i*(i+1)/2+id_params+1] -= prov;
-                model.d2Vright[i*(i+1)/2+id_params+1] -= prov;
+                model.d2VR_prec[i*(i+1)/2+model.id_params+1] -= prov;
+                model.d2Vright[i*(i+1)/2+model.id_params+1] -= prov;
             end
         else
            for i in 0:(model.nb_params_maintenance-1)
@@ -569,11 +569,11 @@ function update!(m::GQR_ARA1, model::AbstractModel;with_gradient::Bool=false,wit
                     model.d2Vright[i*(i+1)/2+j]+=(1-rho_ARA)*model.d2A[i*(i+1)/2+j]*(model.time[model.k]-model.time[model.k - 1]);
                 end
             end
-            for j in 0:id_params
-                model.d2Vright[(id_params+1)*(id_params+2)/2+j] -= model.dA[j]*(model.time[model.k]-model.time[model.k - 1]);
+            for j in 0:model.id_params
+                model.d2Vright[(model.id_params+1)*(model.id_params+2)/2+j] -= model.dA[j]*(model.time[model.k]-model.time[model.k - 1]);
             end
-            for i in (id_params+1):(model.nb_params_maintenance - 1)
-                model.d2Vright[i*(i+1)/2+id_params+1] -= model.dA[i]*(model.time[model.k]-model.time[model.k - 1]);
+            for i in (model.id_params+1):(model.nb_params_maintenance - 1)
+                model.d2Vright[i*(i+1)/2+model.id_params+1] -= model.dA[i]*(model.time[model.k]-model.time[model.k - 1]);
             end
         end
         for i in 0:(model.nb_params_maintenance-1)
@@ -582,14 +582,14 @@ function update!(m::GQR_ARA1, model::AbstractModel;with_gradient::Bool=false,wit
                 model.d2A[i*(i+1)/2+j] = pow(rho_QR,f.eval(K)-f.eval(K-1))* model.d2A[i*(i+1)/2+j];
             end
         end
-        for j in 0:id_params
-            #//i(<=id_params) and id respectively correspond to the column and line indices of (inferior diagonal part of) the hessian matrice
-            model.d2A[id_params*(id_params+1)/2+j] = model.d2A[id_params*(id_params+1)/2+j] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*model.dA[j];
+        for j in 0:model.id_params
+            #//i(<=model.id_params) and id respectively correspond to the column and line indices of (inferior diagonal part of) the hessian matrice
+            model.d2A[model.id_params*(model.id_params+1)/2+j] = model.d2A[model.id_params*(model.id_params+1)/2+j] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*model.dA[j];
         end
-        model.d2A[id_params*(id_params+1)/2+id_params] = model.d2A[id_params*(id_params+1)/2+id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*(2*model.dA[id_params]+(f.eval(K)-f.eval(K-1)-1)/rho_QR*model.A);
-        for i in (id_params+1):(model.nb_params_maintenance - 1)
-            # //id and i(>=id_params) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-            model.d2A[i*(i+1)/2+id_params] = model.d2A[i*(i+1)/2+id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*model.dA[i];
+        model.d2A[model.id_params*(model.id_params+1)/2+model.id_params] = model.d2A[model.id_params*(model.id_params+1)/2+model.id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*(2*model.dA[model.id_params]+(f.eval(K)-f.eval(K-1)-1)/rho_QR*model.A);
+        for i in (model.id_params+1):(model.nb_params_maintenance - 1)
+            # //id and i(>=model.id_params) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
+            model.d2A[i*(i+1)/2+model.id_params] = model.d2A[i*(i+1)/2+model.id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*model.dA[i];
         end
     end
     if with_gradient || with_hessian
@@ -605,18 +605,18 @@ function update!(m::GQR_ARA1, model::AbstractModel;with_gradient::Bool=false,wit
                 model.dVright[i]+=prov;
             end
             prov=model.A*(model.time[model.k]-model.time[model.k - 1]);
-            model.dVR_prec[id_params+1]-= prov;
-            model.dVright[id_params+1]-=prov;
+            model.dVR_prec[model.id_params+1]-= prov;
+            model.dVright[model.id_params+1]-=prov;
         else
             for i in 0:(model.nb_params_maintenance-1)
                 model.dVright[i]+=(1-rho_ARA)*model.dA[i]*(model.time[model.k]-model.time[model.k - 1]);
             end
-            model.dVright[id_params+1]-=model.A*(model.time[model.k]-model.time[model.k - 1]);
+            model.dVright[model.id_params+1]-=model.A*(model.time[model.k]-model.time[model.k - 1]);
         end
         for i in 0:(model.nb_params_maintenance-1)
             model.dA[i] = pow(rho_QR,f.eval(K)-f.eval(K-1)) *  model.dA[i];
         end
-        model.dA[id_params] = model.dA[id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1)) * (f.eval(K)-f.eval(K-1))/rho_QR * model.A;
+        model.dA[model.id_params] = model.dA[model.id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1)) * (f.eval(K)-f.eval(K-1))/rho_QR * model.A;
 
     end
     for k in nk:-1:1 
@@ -647,11 +647,11 @@ function update!(m::GQR_ARAInf, model::AbstractModel;with_gradient::Bool=false,w
                     model.d2VR_prec[k*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+j]=(1-rho_ARA)*model.d2VR_prec[(k-1)*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+j];
                 end
             end
-            for j in 0:id_params
-                model.d2VR_prec[k*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+(id_params+1)*(id_params+2)/2+j]-= model.dVR_prec[(k-1)*model.nb_params_maintenance+j];
+            for j in 0:model.id_params
+                model.d2VR_prec[k*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+(model.id_params+1)*(model.id_params+2)/2+j]-= model.dVR_prec[(k-1)*model.nb_params_maintenance+j];
             end
-            for i in (id_params+1):(model.nb_params_maintenance - 1)
-                model.d2VR_prec[k*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+id_params+1] -= model.dVR_prec[(k-1)*(model.nb_params_maintenance)+i];
+            for i in (model.id_params+1):(model.nb_params_maintenance - 1)
+                model.d2VR_prec[k*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+model.id_params+1] -= model.dVR_prec[(k-1)*(model.nb_params_maintenance)+i];
             end
         end
         if nk > 0
@@ -661,13 +661,13 @@ function update!(m::GQR_ARAInf, model::AbstractModel;with_gradient::Bool=false,w
                     model.d2Vright[i*(i+1)/2+j] = (1-rho_ARA)*model.d2Vleft[i*(i+1)/2+j];
                 end
             end
-            for j in 0:id_params
-                model.d2VR_prec[(id_params+1)*(id_params+2)/2+j] -= model.dA[j]*(model.time[model.k]-model.time[model.k - 1]);
-                model.d2Vright[(id_params+1)*(id_params+2)/2+j] -= model.dVleft[j];
+            for j in 0:model.id_params
+                model.d2VR_prec[(model.id_params+1)*(model.id_params+2)/2+j] -= model.dA[j]*(model.time[model.k]-model.time[model.k - 1]);
+                model.d2Vright[(model.id_params+1)*(model.id_params+2)/2+j] -= model.dVleft[j];
             end
-            for i in (id_params+1):(model.nb_params_maintenance - 1)
-                model.d2VR_prec[i*(i+1)/2+id_params+1] -= model.dA[i]*(model.time[model.k]-model.time[model.k - 1]);
-                model.d2Vright[i*(i+1)/2+id_params+1] -= model.dVleft[i];
+            for i in (model.id_params+1):(model.nb_params_maintenance - 1)
+                model.d2VR_prec[i*(i+1)/2+model.id_params+1] -= model.dA[i]*(model.time[model.k]-model.time[model.k - 1]);
+                model.d2Vright[i*(i+1)/2+model.id_params+1] -= model.dVleft[i];
             end
         else
             for i in 0:(model.nb_params_maintenance-1)
@@ -675,11 +675,11 @@ function update!(m::GQR_ARAInf, model::AbstractModel;with_gradient::Bool=false,w
                     model.d2Vright[i*(i+1)/2+j] = (1-rho_ARA)*model.d2Vleft[i*(i+1)/2+j];
                 end
             end
-            for j in 0:id_params
-                model.d2Vright[(id_params+1)*(id_params+2)/2+j] -= model.dVleft[j];
+            for j in 0:model.id_params
+                model.d2Vright[(model.id_params+1)*(model.id_params+2)/2+j] -= model.dVleft[j];
             end
-            for i in (id_params+1):(model.nb_params_maintenance - 1)
-                model.d2Vright[i*(i+1)/2+id_params+1] -= model.dVleft[i];
+            for i in (model.id_params+1):(model.nb_params_maintenance - 1)
+                model.d2Vright[i*(i+1)/2+model.id_params+1] -= model.dVleft[i];
             end
         end
         for i in 0:(model.nb_params_maintenance-1)
@@ -688,14 +688,14 @@ function update!(m::GQR_ARAInf, model::AbstractModel;with_gradient::Bool=false,w
                 model.d2A[i*(i+1)/2+j] = pow(rho_QR,f.eval(K)-f.eval(K-1))* model.d2A[i*(i+1)/2+j];
             end
         end
-        for j in 0:id_params
-            #//i(<=id_params) and id respectively correspond to the column and line indices of (inferior diagonal part of) the hessian matrice
-            model.d2A[id_params*(id_params+1)/2+j] = model.d2A[id_params*(id_params+1)/2+j] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*model.dA[j];
+        for j in 0:model.id_params
+            #//i(<=model.id_params) and id respectively correspond to the column and line indices of (inferior diagonal part of) the hessian matrice
+            model.d2A[model.id_params*(model.id_params+1)/2+j] = model.d2A[model.id_params*(model.id_params+1)/2+j] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*model.dA[j];
         end
-        model.d2A[id_params*(id_params+1)/2+id_params] = model.d2A[id_params*(id_params+1)/2+id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*(2*model.dA[id_params]+(f.eval(K)-f.eval(K-1)-1)/rho_QR*model.A);
-        for i in (id_params+1):(model.nb_params_maintenance - 1)
-            # //id and i(>=id_params) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-            model.d2A[i*(i+1)/2+id_params] = model.d2A[i*(i+1)/2+id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*model.dA[i];
+        model.d2A[model.id_params*(model.id_params+1)/2+model.id_params] = model.d2A[model.id_params*(model.id_params+1)/2+model.id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*(2*model.dA[model.id_params]+(f.eval(K)-f.eval(K-1)-1)/rho_QR*model.A);
+        for i in (model.id_params+1):(model.nb_params_maintenance - 1)
+            # //id and i(>=model.id_params) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
+            model.d2A[i*(i+1)/2+model.id_params] = model.d2A[i*(i+1)/2+model.id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*model.dA[i];
         end
     end
     if with_gradient || with_hessian
@@ -703,25 +703,25 @@ function update!(m::GQR_ARAInf, model::AbstractModel;with_gradient::Bool=false,w
             for i in 0:(model.nb_params_maintenance-1)
                 model.dVR_prec[k*model.nb_params_maintenance+i]=(1-rho_ARA)*model.dVR_prec[(k-1)*model.nb_params_maintenance+i];
             end
-            model.dVR_prec[k*model.nb_params_maintenance+id_params+1]-=model.VR_prec[k-1];
+            model.dVR_prec[k*model.nb_params_maintenance+model.id_params+1]-=model.VR_prec[k-1];
         end
         if nk > 0
             for i in 0:(model.nb_params_maintenance-1)
                 model.dVR_prec[i]=(1-rho_ARA)*model.dA[i]*(model.time[model.k]-model.time[model.k - 1]);
                 model.dVright[i]=(1-rho_ARA)*model.dVleft[i];
             end
-            model.dVR_prec[id_params+1]-= model.A*(model.time[model.k]-model.time[model.k - 1]);
-            model.dVright[id_params+1]-= model.Vleft;
+            model.dVR_prec[model.id_params+1]-= model.A*(model.time[model.k]-model.time[model.k - 1]);
+            model.dVright[model.id_params+1]-= model.Vleft;
         else
             for i in 0:(model.nb_params_maintenance-1)
                 model.dVright[i]=(1-rho_ARA)*model.dVleft[i];
             end
-            model.dVright[id_params+1]-= model.Vleft;
+            model.dVright[model.id_params+1]-= model.Vleft;
         end
         for i in 0:(model.nb_params_maintenance-1)
             model.dA[i] = pow(rho_QR,f.eval(K)-f.eval(K-1)) *  model.dA[i];
         end
-        model.dA[id_params] = model.dA[id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1)) * (f.eval(K)-f.eval(K-1))/rho_QR * model.A;
+        model.dA[model.id_params] = model.dA[model.id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1)) * (f.eval(K)-f.eval(K-1))/rho_QR * model.A;
     end
     model.Vright=(1-rho_ARA)*model.Vleft;
     for k in nk:-1:1 
@@ -763,13 +763,13 @@ function update!(m::ARAm, model::AbstractModel;with_gradient::Bool=false,with_he
                         model.d2VR_prec[nk2*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+j]=(1-rho)*model.d2VR_prec[(nk2-1)*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+j];
                     end
                 end
-                for j in 0:id_params
-                    model.d2Vright[id_params*(id_params+1)/2+j]-= model.dVR_prec[(nk2-1)*model.nb_params_maintenance+j];
-                    model.d2VR_prec[nk2*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+id_params*(id_params+1)/2+j]-= model.dVR_prec[(nk2-1)*model.nb_params_maintenance+j];
+                for j in 0:model.id_params
+                    model.d2Vright[model.id_params*(model.id_params+1)/2+j]-= model.dVR_prec[(nk2-1)*model.nb_params_maintenance+j];
+                    model.d2VR_prec[nk2*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+model.id_params*(model.id_params+1)/2+j]-= model.dVR_prec[(nk2-1)*model.nb_params_maintenance+j];
                 end
-                for i in id_params:(model.nb_params_maintenance - 1) 
-                    model.d2Vright[i*(i+1)/2+id_params] -= model.dVR_prec[(nk2-1)*(model.nb_params_maintenance)+i];
-                    model.d2VR_prec[nk2*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+id_params] -= model.dVR_prec[(nk2-1)*(model.nb_params_maintenance)+i];
+                for i in model.id_params:(model.nb_params_maintenance - 1) 
+                    model.d2Vright[i*(i+1)/2+model.id_params] -= model.dVR_prec[(nk2-1)*(model.nb_params_maintenance)+i];
+                    model.d2VR_prec[nk2*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+model.id_params] -= model.dVR_prec[(nk2-1)*(model.nb_params_maintenance)+i];
                 end
             else
                 for i in 0:(model.nb_params_maintenance-1)
@@ -777,11 +777,11 @@ function update!(m::ARAm, model::AbstractModel;with_gradient::Bool=false,with_he
                         model.d2Vright[i*(i+1)/2+j]-=rho*model.d2VR_prec[(nk2-1)*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+j]
                     end
                 end
-                for j in 0:id_params 
-                    model.d2Vright[id_params*(id_params+1)/2+j]-= model.dVR_prec[(nk2-1)*model.nb_params_maintenance+j];
+                for j in 0:model.id_params 
+                    model.d2Vright[model.id_params*(model.id_params+1)/2+j]-= model.dVR_prec[(nk2-1)*model.nb_params_maintenance+j];
                 end
-                for i in id_params:(model.nb_params_maintenance - 1)  
-                    model.d2Vright[i*(i+1)/2+id_params] -= model.dVR_prec[(nk2-1)*(model.nb_params_maintenance)+i];
+                for i in model.id_params:(model.nb_params_maintenance - 1)  
+                    model.d2Vright[i*(i+1)/2+model.id_params] -= model.dVR_prec[(nk2-1)*(model.nb_params_maintenance)+i];
                 end
             end
         end
@@ -793,13 +793,13 @@ function update!(m::ARAm, model::AbstractModel;with_gradient::Bool=false,with_he
                     model.d2VR_prec[k*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+j]=(1-rho)*model.d2VR_prec[(k-1)*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+j];
                 end
             end
-            for j in 0:id_params
-                model.d2Vright[id_params*(id_params+1)/2+j]-= model.dVR_prec[(k-1)*model.nb_params_maintenance+j];
-                model.d2VR_prec[k*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+id_params*(id_params+1)/2+j]-= model.dVR_prec[(k-1)*model.nb_params_maintenance+j];
+            for j in 0:model.id_params
+                model.d2Vright[model.id_params*(model.id_params+1)/2+j]-= model.dVR_prec[(k-1)*model.nb_params_maintenance+j];
+                model.d2VR_prec[k*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+model.id_params*(model.id_params+1)/2+j]-= model.dVR_prec[(k-1)*model.nb_params_maintenance+j];
             end
-            for i in id_params:(model.nb_params_maintenance - 1) 
-                model.d2Vright[i*(i+1)/2+id_params] -= model.dVR_prec[(k-1)*(model.nb_params_maintenance)+i];
-                model.d2VR_prec[k*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+id_params] -= model.dVR_prec[(k-1)*(model.nb_params_maintenance)+i];
+            for i in model.id_params:(model.nb_params_maintenance - 1) 
+                model.d2Vright[i*(i+1)/2+model.id_params] -= model.dVR_prec[(k-1)*(model.nb_params_maintenance)+i];
+                model.d2VR_prec[k*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+model.id_params] -= model.dVR_prec[(k-1)*(model.nb_params_maintenance)+i];
             end
         end
         if nk > 0
@@ -810,15 +810,15 @@ function update!(m::ARAm, model::AbstractModel;with_gradient::Bool=false,with_he
                     model.d2Vright[i*(i+1)/2+j]+=prov;
                 end
             end
-            for j in 0:id_params
+            for j in 0:model.id_params
                 prov=model.dA[j]*(model.time[model.k]-model.time[model.k - 1]);
-                model.d2VR_prec[id_params*(id_params+1)/2+j] -= prov;
-                model.d2Vright[id_params*(id_params+1)/2+j] -= prov;
+                model.d2VR_prec[model.id_params*(model.id_params+1)/2+j] -= prov;
+                model.d2Vright[model.id_params*(model.id_params+1)/2+j] -= prov;
             end
-            for i in id_params:(model.nb_params_maintenance - 1) 
+            for i in model.id_params:(model.nb_params_maintenance - 1) 
                 prov=model.dA[i]*(model.time[model.k]-model.time[model.k - 1]);
-                model.d2VR_prec[i*(i+1)/2+id_params] -= prov;
-                model.d2Vright[i*(i+1)/2+id_params] -= prov;
+                model.d2VR_prec[i*(i+1)/2+model.id_params] -= prov;
+                model.d2Vright[i*(i+1)/2+model.id_params] -= prov;
             end
         else
            for i in 0:(model.nb_params_maintenance-1)
@@ -826,11 +826,11 @@ function update!(m::ARAm, model::AbstractModel;with_gradient::Bool=false,with_he
                     model.d2Vright[i*(i+1)/2+j]+=(1-rho)*model.d2A[i*(i+1)/2+j]*(model.time[model.k]-model.time[model.k - 1]);
                 end
             end
-            for j in 0:id_params
-                model.d2Vright[id_params*(id_params+1)/2+j] -= model.dA[j]*(model.time[model.k]-model.time[model.k - 1]);
+            for j in 0:model.id_params
+                model.d2Vright[model.id_params*(model.id_params+1)/2+j] -= model.dA[j]*(model.time[model.k]-model.time[model.k - 1]);
             end
-            for i in id_params:(model.nb_params_maintenance - 1) 
-                model.d2Vright[i*(i+1)/2+id_params] -= model.dA[i]*(model.time[model.k]-model.time[model.k - 1]);
+            for i in model.id_params:(model.nb_params_maintenance - 1) 
+                model.d2Vright[i*(i+1)/2+model.id_params] -= model.dA[i]*(model.time[model.k]-model.time[model.k - 1]);
             end
         end
     end
@@ -846,13 +846,13 @@ function update!(m::ARAm, model::AbstractModel;with_gradient::Bool=false,with_he
                     model.dVright[i]-=rho*model.dVR_prec[(nk2-1)*model.nb_params_maintenance+i];
                     model.dVR_prec[nk2*model.nb_params_maintenance+i]=(1-rho)*model.dVR_prec[(nk2-1)*model.nb_params_maintenance+i];
                 end
-                model.dVR_prec[nk2 * (model.nb_params_maintenance)+id_params] -= model.VR_prec[nk2-1];
-                model.dVright[id_params]-=model.VR_prec[nk2-1];
+                model.dVR_prec[nk2 * (model.nb_params_maintenance)+model.id_params] -= model.VR_prec[nk2-1];
+                model.dVright[model.id_params]-=model.VR_prec[nk2-1];
             else
                 for i in 0:(model.nb_params_maintenance-1) 
                     model.dVright[i]-=rho*model.dVR_prec[(nk2-1)*model.nb_params_maintenance+i];
                 end
-                model.dVright[id_params]-=model.VR_prec[nk2-1];
+                model.dVright[model.id_params]-=model.VR_prec[nk2-1];
             end
         end
         for k in nk2:-1:1
@@ -860,8 +860,8 @@ function update!(m::ARAm, model::AbstractModel;with_gradient::Bool=false,with_he
                 model.dVright[i]-=rho*model.dVR_prec[(k-1)*model.nb_params_maintenance+i];
                 model.dVR_prec[k*model.nb_params_maintenance+i]=(1-rho)*model.dVR_prec[(k-1)*model.nb_params_maintenance+i];
             end
-            model.dVR_prec[k * (model.nb_params_maintenance)+id_params] -= model.VR_prec[k-1];
-            model.dVright[id_params]-=model.VR_prec[k-1];
+            model.dVR_prec[k * (model.nb_params_maintenance)+model.id_params] -= model.VR_prec[k-1];
+            model.dVright[model.id_params]-=model.VR_prec[k-1];
         end
         if nk > 0
             for i in 0:(model.nb_params_maintenance-1)
@@ -870,13 +870,13 @@ function update!(m::ARAm, model::AbstractModel;with_gradient::Bool=false,with_he
                 model.dVright[i]+=prov;
             end
             prov=model.A*(model.time[model.k]-model.time[model.k - 1]);
-            model.dVR_prec[id_params]-= prov;
-            model.dVright[id_params]-=prov;
+            model.dVR_prec[model.id_params]-= prov;
+            model.dVright[model.id_params]-=prov;
         else
             for i in 0:(model.nb_params_maintenance-1)
                 model.dVright[i]+=(1-rho)*model.dA[i]*(model.time[model.k]-model.time[model.k - 1]);
             end
-            model.dVright[id_params]-=model.A*(model.time[model.k]-model.time[model.k - 1]);
+            model.dVright[model.id_params]-=model.A*(model.time[model.k]-model.time[model.k - 1]);
         end
     end
     # //printf("Avant nk=%i, nk2=%i, VRprec[0]=%f, VRprec[1]=%f, VRprec[2]=%f\n",nk,nk2,model.VR_prec[0],model.VR_prec[1],model.VR_prec[2]); 
@@ -934,13 +934,13 @@ function update!(m::GQR_ARAm, model::AbstractModel;with_gradient::Bool=false,wit
                         model.d2VR_prec[nk2*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+j]=(1-rho_ARA)*model.d2VR_prec[(nk2-1)*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+j];
                     end
                 end
-                for j in 0:id_params
-                    model.d2Vright[(id_params+1)*(id_params+2)/2+j]-= model.dVR_prec[(nk2-1)*model.nb_params_maintenance+j];
-                    model.d2VR_prec[nk2*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+(id_params+1)*(id_params+2)/2+j]-= model.dVR_prec[(nk2-1)*model.nb_params_maintenance+j];
+                for j in 0:model.id_params
+                    model.d2Vright[(model.id_params+1)*(model.id_params+2)/2+j]-= model.dVR_prec[(nk2-1)*model.nb_params_maintenance+j];
+                    model.d2VR_prec[nk2*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+(model.id_params+1)*(model.id_params+2)/2+j]-= model.dVR_prec[(nk2-1)*model.nb_params_maintenance+j];
                 end
-                for i in (id_params+1):(model.nb_params_maintenance - 1)
-                    model.d2Vright[i*(i+1)/2+id_params+1] -= model.dVR_prec[(nk2-1)*(model.nb_params_maintenance)+i];
-                    model.d2VR_prec[nk2*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+id_params+1] -= model.dVR_prec[(nk2-1)*(model.nb_params_maintenance)+i];
+                for i in (model.id_params+1):(model.nb_params_maintenance - 1)
+                    model.d2Vright[i*(i+1)/2+model.id_params+1] -= model.dVR_prec[(nk2-1)*(model.nb_params_maintenance)+i];
+                    model.d2VR_prec[nk2*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+model.id_params+1] -= model.dVR_prec[(nk2-1)*(model.nb_params_maintenance)+i];
                 end
             else
                 for i in 0:(model.nb_params_maintenance-1)
@@ -948,11 +948,11 @@ function update!(m::GQR_ARAm, model::AbstractModel;with_gradient::Bool=false,wit
                         model.d2Vright[i*(i+1)/2+j]-=rho_ARA*model.d2VR_prec[(nk2-1)*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+j];
                     end
                 end
-                for j in 0:(id_params+1) 
-                    model.d2Vright[(id_params+1)*(id_params+2)/2+j]-= model.dVR_prec[(nk2-1)*model.nb_params_maintenance+j]
+                for j in 0:(model.id_params+1) 
+                    model.d2Vright[(model.id_params+1)*(model.id_params+2)/2+j]-= model.dVR_prec[(nk2-1)*model.nb_params_maintenance+j]
                 end
-                for i in (id_params+1):(model.nb_params_maintenance - 1) 
-                    model.d2Vright[i*(i+1)/2+id_params+1] -= model.dVR_prec[(nk2-1)*(model.nb_params_maintenance)+i];
+                for i in (model.id_params+1):(model.nb_params_maintenance - 1) 
+                    model.d2Vright[i*(i+1)/2+model.id_params+1] -= model.dVR_prec[(nk2-1)*(model.nb_params_maintenance)+i];
                 end
             end
         end
@@ -964,13 +964,13 @@ function update!(m::GQR_ARAm, model::AbstractModel;with_gradient::Bool=false,wit
                     model.d2VR_prec[k*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+j]=(1-rho_ARA)*model.d2VR_prec[(k-1)*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+j];
                 end
             end
-            for j in 0:id_params
-                model.d2Vright[(id_params+1)*(id_params+2)/2+j]-= model.dVR_prec[(k-1)*model.nb_params_maintenance+j];
-                model.d2VR_prec[k*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+(id_params+1)*(id_params+2)/2+j]-= model.dVR_prec[(k-1)*model.nb_params_maintenance+j];
+            for j in 0:model.id_params
+                model.d2Vright[(model.id_params+1)*(model.id_params+2)/2+j]-= model.dVR_prec[(k-1)*model.nb_params_maintenance+j];
+                model.d2VR_prec[k*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+(model.id_params+1)*(model.id_params+2)/2+j]-= model.dVR_prec[(k-1)*model.nb_params_maintenance+j];
             end
-            for i in (id_params+1):(model.nb_params_maintenance - 1)
-                model.d2Vright[i*(i+1)/2+id_params+1] -= model.dVR_prec[(k-1)*(model.nb_params_maintenance)+i];
-                model.d2VR_prec[k*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+id_params+1] -= model.dVR_prec[(k-1)*(model.nb_params_maintenance)+i];
+            for i in (model.id_params+1):(model.nb_params_maintenance - 1)
+                model.d2Vright[i*(i+1)/2+model.id_params+1] -= model.dVR_prec[(k-1)*(model.nb_params_maintenance)+i];
+                model.d2VR_prec[k*(model.nb_params_maintenance*(model.nb_params_maintenance+1)/2)+i*(i+1)/2+model.id_params+1] -= model.dVR_prec[(k-1)*(model.nb_params_maintenance)+i];
             end
         end
         if nk > 0
@@ -981,15 +981,15 @@ function update!(m::GQR_ARAm, model::AbstractModel;with_gradient::Bool=false,wit
                     model.d2Vright[i*(i+1)/2+j]+=prov;
                 end
             end
-            for j in 0:id_params
+            for j in 0:model.id_params
                 prov=model.dA[j]*(model.time[model.k]-model.time[model.k - 1]);
-                model.d2VR_prec[(id_params+1)*(id_params+2)/2+j] -= prov;
-                model.d2Vright[(id_params+1)*(id_params+2)/2+j] -= prov;
+                model.d2VR_prec[(model.id_params+1)*(model.id_params+2)/2+j] -= prov;
+                model.d2Vright[(model.id_params+1)*(model.id_params+2)/2+j] -= prov;
             end
-            for i in (id_params+1):(model.nb_params_maintenance - 1)
+            for i in (model.id_params+1):(model.nb_params_maintenance - 1)
                 prov=model.dA[i]*(model.time[model.k]-model.time[model.k - 1]);
-                model.d2VR_prec[i*(i+1)/2+id_params+1] -= prov;
-                model.d2Vright[i*(i+1)/2+id_params+1] -= prov;
+                model.d2VR_prec[i*(i+1)/2+model.id_params+1] -= prov;
+                model.d2Vright[i*(i+1)/2+model.id_params+1] -= prov;
             end
         else
            for i in 0:(model.nb_params_maintenance-1)
@@ -997,11 +997,11 @@ function update!(m::GQR_ARAm, model::AbstractModel;with_gradient::Bool=false,wit
                     model.d2Vright[i*(i+1)/2+j]+=(1-rho_ARA)*model.d2A[i*(i+1)/2+j]*(model.time[model.k]-model.time[model.k - 1]);
                 end
             end
-            for j in 0:id_params
-                model.d2Vright[(id_params+1)*(id_params+2)/2+j] -= model.dA[j]*(model.time[model.k]-model.time[model.k - 1]);
+            for j in 0:model.id_params
+                model.d2Vright[(model.id_params+1)*(model.id_params+2)/2+j] -= model.dA[j]*(model.time[model.k]-model.time[model.k - 1]);
             end
-            for i in (id_params+1):(model.nb_params_maintenance - 1)
-                model.d2Vright[i*(i+1)/2+id_params+1] -= model.dA[i]*(model.time[model.k]-model.time[model.k - 1]);
+            for i in (model.id_params+1):(model.nb_params_maintenance - 1)
+                model.d2Vright[i*(i+1)/2+model.id_params+1] -= model.dA[i]*(model.time[model.k]-model.time[model.k - 1]);
             end
         end
         for i in 0:(model.nb_params_maintenance-1)
@@ -1010,14 +1010,14 @@ function update!(m::GQR_ARAm, model::AbstractModel;with_gradient::Bool=false,wit
                 model.d2A[i*(i+1)/2+j] = pow(rho_QR,f.eval(K)-f.eval(K-1))* model.d2A[i*(i+1)/2+j];
             end
         end
-        for j in 0:id_params
-            #//i(<=id_params) and id respectively correspond to the column and line indices of (inferior diagonal part of) the hessian matrice
-            model.d2A[id_params*(id_params+1)/2+j] = model.d2A[id_params*(id_params+1)/2+j] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*model.dA[j];
+        for j in 0:model.id_params
+            #//i(<=model.id_params) and id respectively correspond to the column and line indices of (inferior diagonal part of) the hessian matrice
+            model.d2A[model.id_params*(model.id_params+1)/2+j] = model.d2A[model.id_params*(model.id_params+1)/2+j] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*model.dA[j];
         end
-        model.d2A[id_params*(id_params+1)/2+id_params] = model.d2A[id_params*(id_params+1)/2+id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*(2*model.dA[id_params]+(f.eval(K)-f.eval(K-1)-1)/rho_QR*model.A);
-        for i in (id_params+1):(model.nb_params_maintenance - 1)
-            # //id and i(>=id_params) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-            model.d2A[i*(i+1)/2+id_params] = model.d2A[i*(i+1)/2+id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*model.dA[i];
+        model.d2A[model.id_params*(model.id_params+1)/2+model.id_params] = model.d2A[model.id_params*(model.id_params+1)/2+model.id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*(2*model.dA[model.id_params]+(f.eval(K)-f.eval(K-1)-1)/rho_QR*model.A);
+        for i in (model.id_params+1):(model.nb_params_maintenance - 1)
+            # //id and i(>=model.id_params) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
+            model.d2A[i*(i+1)/2+model.id_params] = model.d2A[i*(i+1)/2+model.id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/rho_QR*model.dA[i];
         end
     end
     if with_gradient || with_hessian
@@ -1032,13 +1032,13 @@ function update!(m::GQR_ARAm, model::AbstractModel;with_gradient::Bool=false,wit
                     model.dVright[i]-=rho_ARA*model.dVR_prec[(nk2-1)*model.nb_params_maintenance+i];
                     model.dVR_prec[nk2*model.nb_params_maintenance+i]=(1-rho_ARA)*model.dVR_prec[(nk2-1)*model.nb_params_maintenance+i];
                 end
-                model.dVR_prec[nk2 * (model.nb_params_maintenance)+id_params+1] -= model.VR_prec[nk2-1];
-                model.dVright[id_params+1]-=model.VR_prec[nk2-1];
+                model.dVR_prec[nk2 * (model.nb_params_maintenance)+model.id_params+1] -= model.VR_prec[nk2-1];
+                model.dVright[model.id_params+1]-=model.VR_prec[nk2-1];
             else
                 for i in 0:(model.nb_params_maintenance-1) 
                     model.dVright[i]-=rho_ARA*model.dVR_prec[(nk2-1)*model.nb_params_maintenance+i]
                 end
-                model.dVright[id_params+1]-=model.VR_prec[nk2-1];
+                model.dVright[model.id_params+1]-=model.VR_prec[nk2-1];
             end
         end
         for k in nk2:-1:1
@@ -1046,8 +1046,8 @@ function update!(m::GQR_ARAm, model::AbstractModel;with_gradient::Bool=false,wit
                 model.dVright[i]-=rho_ARA*model.dVR_prec[(k-1)*model.nb_params_maintenance+i];
                 model.dVR_prec[k*model.nb_params_maintenance+i]=(1-rho_ARA)*model.dVR_prec[(k-1)*model.nb_params_maintenance+i];
             end
-            model.dVR_prec[k * (model.nb_params_maintenance)+id_params+1] -= model.VR_prec[k-1];
-            model.dVright[id_params+1]-=model.VR_prec[k-1];
+            model.dVR_prec[k * (model.nb_params_maintenance)+model.id_params+1] -= model.VR_prec[k-1];
+            model.dVright[model.id_params+1]-=model.VR_prec[k-1];
         end
         if nk > 0
             for i in 0:(model.nb_params_maintenance-1)
@@ -1056,18 +1056,18 @@ function update!(m::GQR_ARAm, model::AbstractModel;with_gradient::Bool=false,wit
                 model.dVright[i]+=prov;
             end
             prov=model.A*(model.time[model.k]-model.time[model.k - 1]);
-            model.dVR_prec[id_params+1]-= prov;
-            model.dVright[id_params+1]-=prov;
+            model.dVR_prec[model.id_params+1]-= prov;
+            model.dVright[model.id_params+1]-=prov;
         else
             for i in 0:(model.nb_params_maintenance-1)
                 model.dVright[i]+=(1-rho_ARA)*model.dA[i]*(model.time[model.k]-model.time[model.k - 1]);
             end
-            model.dVright[id_params+1]-=model.A*(model.time[model.k]-model.time[model.k - 1]);
+            model.dVright[model.id_params+1]-=model.A*(model.time[model.k]-model.time[model.k - 1]);
         end
         for i in 0:(model.nb_params_maintenance-1)
             model.dA[i] = pow(rho_QR,f.eval(K)-f.eval(K-1)) *  model.dA[i];
         end
-        model.dA[id_params] = model.dA[id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1)) * (f.eval(K)-f.eval(K-1))/rho_QR * model.A;
+        model.dA[model.id_params] = model.dA[model.id_params] + pow(rho_QR,f.eval(K)-f.eval(K-1)) * (f.eval(K)-f.eval(K-1))/rho_QR * model.A;
     end
     # //printf("Avant nk=%i, nk2=%i, VRprec[0]=%f, VRprec[1]=%f, VRprec[2]=%f\n",nk,nk2,model.VR_prec[0],model.VR_prec[1],model.VR_prec[2]); 
     for k=nk:-1:nk2

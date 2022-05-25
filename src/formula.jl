@@ -73,7 +73,15 @@ macro model(ex_f)
     return parse_model(ex_f)
 end
 
+macro sim(ex_f, ex_s)
+    mod = parse_model(ex_f)
+    sim = Sim(mod, formula_translate(ex_s))
+    init!(sim.model)
+    return sim
+end
+
 macro sim(ex_f)
+    println(ex_f.args)
     mod = parse_model(ex_f)
     sim = Sim(mod, nothing)
     init!(sim.model)

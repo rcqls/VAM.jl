@@ -17,18 +17,14 @@ function init!(sim::Sim)
     sim.model.type = [-1]
 end
 
-function simulate(sim::Sim, nbsim::Union{Real,Vector{Any}}) #::DataFrame
+function simulate(sim::Sim, stop::Union{Nothing, Real,Vector{Any}}) #::DataFrame
     init!(sim)
-    if isa(nbsim,Int)
-        sim.stop_policy = Expr(:call, :<=, :__size__,  nbsim)
-    else 
-        sim.stop_policy = formula_translate(Expr(:call, nbsim...))
-    end
-    #first(sim.stop_policy)
+
+    add_stop_policy!(sim, stop)
 
     has_maintenance_policy(sim.model) || first(sim.model.maintenance_policy)
-    #println(ok(sim))
-    while ok(sim)
+    run = true
+    while run
         u = log(rand(1)[1])::Float64
         if sim.model.nb_params_cov > 0
         #   u *= compute_covariates(sim) #;//set_current_system launched in R for simulation
@@ -63,19 +59,30 @@ function simulate(sim::Sim, nbsim::Union{Real,Vector{Any}}) #::DataFrame
     #     #//# update the next k, and save model in model too!
         update!(sim.model.models[id_mod + 1], sim.model) #false,false)
         save_id_mod(sim.model, id_mod)
+        run = ok(sim)
+        ## TODO work on stop later
     end
-    #//DEBUG[distrib type1]: printf("cpt: %d/%d et %d/%d\n",type1CptAV,typeCptAV,type1CptAP,typeCptAP);
 
-    #return get_last_data(sim)
     (time=sim.model.time, type=sim.model.type)
 end
 
+simulate(sim::Sim) = simulate(sim, nothing)
+
 function ok(sim::Sim)::Bool
     s = length(sim.model.time)
-    eval(:(__size__=$s))
     t = sim.model.time[sim.model.k]
-    eval(:(__time__=$t))
-    # println(s)
-    # println(sim.stop_policy)
+    eval(:(__size__=$s;__time__=$t))
     eval(sim.stop_policy)
+end
+
+function add_stop_policy!(sim::Sim, stop::Union{Nothing, Real,Vector{Any}})
+    if isa(stop,Int)
+        sim.stop_policy = Expr(:call, :<=, :__size__,  stop)
+    elseif isnothing(stop)
+        if isnothing(sim.stop_policy)
+            sim.stop_policy = Expr(:call, :<=, :__size__,  100)
+        end
+    else  
+        sim.stop_policy = formula_translate(Expr(:call, stop...))
+    end
 end
