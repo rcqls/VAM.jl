@@ -84,6 +84,10 @@ macro stop(ex_s)
     return ex_s.args
 end
 
+function formula_translate(ex_f::Expr)
+    Meta.parse(replace(string(ex_f), "size" => "__size__", "time" => "__time__"))
+end
+
 function complete_name!(ex::Expr, i::Int, append::String)::Expr
     ex.args[i] = Symbol(string(ex.args[i]) * append)
     return ex

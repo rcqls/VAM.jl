@@ -20,15 +20,15 @@ end
 function simulate(sim::Sim, nbsim::Union{Real,Vector{Any}}) #::DataFrame
     init!(sim)
     if isa(nbsim,Int)
-        sim.stop_policy = Expr(:call, :<=, :size,  nbsim)
+        sim.stop_policy = Expr(:call, :<=, :__size__,  nbsim)
     else 
-        sim.stop_policy = Expr(:call, nbsim...)
+        sim.stop_policy = formula_translate(Expr(:call, nbsim...))
     end
     #first(sim.stop_policy)
 
     has_maintenance_policy(sim.model) || first(sim.model.maintenance_policy)
     #println(ok(sim))
-    while sim.model.k < 30  #ok(sim) #, sim.stop_policy)
+    while ok(sim)
         u = log(rand(1)[1])::Float64
         if sim.model.nb_params_cov > 0
         #   u *= compute_covariates(sim) #;//set_current_system launched in R for simulation
@@ -52,7 +52,7 @@ function simulate(sim::Sim, nbsim::Union{Real,Vector{Any}}) #::DataFrame
         else
             push!(sim.model.time, timePM)
             #//DEBUG[distrib type1]: typeCptAP++;if(typePM==1) type1CptAP++;printf("typePM=%d\n",typePM);
-            push!(sim.model.type, typePM)
+            push!(sim.model.type, typePM + 1)
             id_mod=typePM
         end
     #     #//printf("k=%d: cm=%lf,pm=%lf\n",model->k,timeCM,timePM);
@@ -71,46 +71,11 @@ function simulate(sim::Sim, nbsim::Union{Real,Vector{Any}}) #::DataFrame
 end
 
 function ok(sim::Sim)::Bool
-    begin
-        s = length(sim.model.time)
-        # println(s)
-        # println(sim.stop_policy)
-        @eval(sim.stop_policy)
-    end
-end
-
-## Ok methods related to StopPolicy
-ok(sim::Sim, sp::SizeGreaterThanStopPolicy)::Bool = sim.model.k < sp.size
-
-function ok(sim::Sim, sp::SizeOfTypeGreaterThanStopPolicy)::Bool
-    # //incr counter
-    # //printf("k=%d,t=%lf,ty=%d ->",mod->k,mod->time[mod->k],mod->type[mod->k]);
-    if sim.model.k>0 && sim.model.type[sim.model.k] == sp.type
-        sp.count += 1
-        #//printf("type=%d,count=%d",type,count);
-    end
-    #//printf("\n");
-    return sp.count < sp.size
-end
-
-ok(sim::Sim, sp::TimeGreaterThanStopPolicy)::Bool = sim.model.time[sim.model.k] < sp.time
-
-function ok(sim::Sim, sp::AndStopPolicy)::Bool
-    ans = false
-    for policy in sp.policies 
-        if ok(sim, policy)
-            ans |= true; #every cond is tested because some init is done there!
-        end
-    end
-    return ans
-end
-
-function ok(sim::Sim, sp::OrStopPolicy)::Bool
-    ans = false
-    for policy in sp.policies 
-        if ok(sim, policy)
-            ans &= false; #every cond is tested because some init is done there!
-        end
-    end
-    return ans
+    s = length(sim.model.time)
+    eval(:(__size__=$s))
+    t = sim.model.time[sim.model.k]
+    eval(:(__time__=$t))
+    # println(s)
+    # println(sim.stop_policy)
+    eval(sim.stop_policy)
 end

@@ -3,7 +3,8 @@ mutable struct Model <: AbstractModel
     k::Int # current system
     nb_system::Int #number of system
 	nbPM::Int
-    id_mod::Int
+    id_mod::Int # current maintenance model
+	id_params::Int # current index in maintenance model parameters
 	nb_params_maintenance::Int
     nb_params_family::Int
     nb_params_cov::Int
@@ -264,4 +265,9 @@ end
 
 function save_id_mod(m::Model, id_mod::Int)
 	m.id_mod = id_mod
+	if id_mod == 0
+		m.id_params = 0
+	else
+		m.id_params += nb_params(m.models[id_mod]) 
+	end
 end
