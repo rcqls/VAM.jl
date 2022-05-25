@@ -1,6 +1,7 @@
 module VAM
 
-using Random, DataFrames
+import Random
+import DataFrames
 export Model, Sim, @sim, @model, simulate
 
 abstract type AbstractModel end
