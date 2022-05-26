@@ -17,56 +17,60 @@ function init!(sim::Sim)
     sim.model.type = [-1]
 end
 
-function simulate(sim::Sim, stop::Union{Nothing, Real,Vector{Any}})::DataFrame
-    init!(sim)
-
+function simulate(sim::Sim, stop::Union{Nothing, Real, Vector{Any}}; system::Int=1)::DataFrame
     add_stop_policy!(sim, stop)
-
     has_maintenance_policy(sim.model) || first(sim.model.maintenance_policy)
-    run = true
-    while run
-        u = log(rand(1)[1])::Float64
-        if sim.model.nb_params_cov > 0
-        #   u *= compute_covariates(sim) #;//set_current_system launched in R for simulation
-        end
-        timeCM = virtual_age_inverse(sim.model, inverse_cumulative_hazard_rate(sim.model.family, cumulative_hazard_rate(sim.model.family, virtual_age(sim.model,sim.model.time[sim.model.k]))-u))
-        ##println("timeCM=$timeCM")
-        #   TODO: submodels
-        id_mod = 0
-    #     # List timeAndTypePM;
-        if has_maintenance_policy(sim.model)
-            timePM, typePM = update(sim.model.maintenance_policy, sim.model) # //# Peut-être ajout Vright comme argument de update
-            if timePM < timeCM && timePM < sim.model.time[sim.model.k]
-          		#print("Warning: PM ignored since next_time(=%lf)<current_time(=%lf) at rank %d.\n",timePM,model->time[model->k],model->k);
-                print("warning")
+    data = DataFrame()
+    for syst in 1:system
+        init!(sim)
+        run = true
+        while run
+            u = log(rand(1)[1])::Float64
+            if sim.model.nb_params_cov > 0
+            #   u *= compute_covariates(sim) #;//set_current_system launched in R for simulation
             end
-        end
-        if !has_maintenance_policy(sim.model) || timeCM < timePM || timePM < sim.model.time[sim.model.k]
-            push!(sim.model.time,timeCM)
-            push!(sim.model.type, -1)
-            id_mod=0
-        else
-            push!(sim.model.time, timePM)
-            #//DEBUG[distrib type1]: typeCptAP++;if(typePM==1) type1CptAP++;printf("typePM=%d\n",typePM);
-            push!(sim.model.type, typePM)
-            id_mod=typePM
-        end
-    #     #//printf("k=%d: cm=%lf,pm=%lf\n",model->k,timeCM,timePM);
-    #     #//# used in the next update
-        update_Vleft!(sim.model) #, false,false)
+            timeCM = virtual_age_inverse(sim.model, inverse_cumulative_hazard_rate(sim.model.family, cumulative_hazard_rate(sim.model.family, virtual_age(sim.model,sim.model.time[sim.model.k]))-u))
+            ##println("timeCM=$timeCM")
+            #   TODO: submodels
+            id_mod = 0
+        #     # List timeAndTypePM;
+            if has_maintenance_policy(sim.model)
+                timePM, typePM = update(sim.model.maintenance_policy, sim.model) # //# Peut-être ajout Vright comme argument de update
+                if timePM < timeCM && timePM < sim.model.time[sim.model.k]
+                    #print("Warning: PM ignored since next_time(=%lf)<current_time(=%lf) at rank %d.\n",timePM,model->time[model->k],model->k);
+                    print("warning")
+                end
+            end
+            if !has_maintenance_policy(sim.model) || timeCM < timePM || timePM < sim.model.time[sim.model.k]
+                push!(sim.model.time,timeCM)
+                push!(sim.model.type, -1)
+                id_mod=0
+            else
+                push!(sim.model.time, timePM)
+                #//DEBUG[distrib type1]: typeCptAP++;if(typePM==1) type1CptAP++;printf("typePM=%d\n",typePM);
+                push!(sim.model.type, typePM)
+                id_mod=typePM
+            end
+        #     #//printf("k=%d: cm=%lf,pm=%lf\n",model->k,timeCM,timePM);
+        #     #//# used in the next update
+            update_Vleft!(sim.model) #, false,false)
 
 
-    #     #//# update the next k, and save model in model too!
-        update!(sim.model.models[id_mod + 1], sim.model) #false,false)
-        save_id_mod(sim.model, id_mod)
-        run = ok(sim)
-        ## TODO work on stop later
+        #     #//# update the next k, and save model in model too!
+            update!(sim.model.models[id_mod + 1], sim.model) #false,false)
+            save_id_mod(sim.model, id_mod)
+            run = ok(sim)
+            ## TODO work on stop later
+        end
+        data = vcat(data,DataFrame(system=syst, time=sim.model.time, type=sim.model.type))
     end
-
-    DataFrame((time=sim.model.time, type=sim.model.type))
+    if system ==1
+        data = data[:,[:time, :type]]
+    end
+    data
 end
 
-simulate(sim::Sim) = simulate(sim, nothing)
+simulate(sim::Sim; system::Int=1) = simulate(sim, nothing, system=system)
 
 function ok(sim::Sim)::Bool
     s = length(sim.model.time)
