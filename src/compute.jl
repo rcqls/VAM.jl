@@ -25,7 +25,7 @@ end
 function Compute(m::AbstractModel)
     comp = Compute()
     init_dims!(comp,m)
-    init!(comp,true)
+    init!(comp,deriv=true)
     return comp
 end
 
@@ -37,9 +37,9 @@ function init_dims!(c::Compute, m::AbstractModel)
     c.nbc = m.nb_params_cov
 end
 
-function init!(c::Compute; with_deriv::Bool = false)
+function init!(c::Compute; deriv::Bool = false)
     c.S0, c.S1, c.S2, c.S3, c.S4 = zeros(5)
-    if with_deriv
+    if deriv
         c.dS1, c.dS2, c.dS3=zeros(c.nbd + c.nbc), zeros(c.nbd), zeros(c.nbm)
         if c.nbc > 0
             c.dS4 = zeros(c.nbc)

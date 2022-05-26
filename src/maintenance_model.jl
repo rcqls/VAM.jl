@@ -4,24 +4,45 @@ init!(mm::AbstractMaintenanceModel) = nothing
 mutable struct ARA1 <: AbstractMaintenanceModel
     ρ::Float64
 end
+params(m::ARA1)::Vector{Float64} = [m.ρ]
+params!(m::ARA1, p::Vector{Float64}) = begin;m.ρ = p[1]; nothing; end
 nb_params(m::ARA1) = 1
 mutable struct ARAInf <: AbstractMaintenanceModel 
 	ρ::Float64
 end
+params(m::ARAInf)::Vector{Float64} = [m.ρ]
+params!(m::ARAInf, p::Vector{Float64}) = begin;m.ρ = p[1]; nothing; end
 nb_params(m::ARAInf) = 1
+
+mutable struct ARAm <: AbstractMaintenanceModel
+    ρ::Float64
+    m::Int
+end
+params(m::ARAm)::Vector{Float64} = [m.ρ]
+params!(m::ARAm, p::Vector{Float64}) = begin;m.ρ = p[1]; nothing; end
+nb_params(m::ARAm) = 1 # only parameters considered in the optim
 
 struct AGAN <: AbstractMaintenanceModel
 end
+params(m::AGAN)::Vector{Float64} = []
+params!(m::AGAN, p::Vector{Float64}) = nothing
 nb_params(m::AGAN) = 0
 struct ABAO <: AbstractMaintenanceModel
 end
-nb_params(m::ABAO) = 1
+params(m::ABAO)::Vector{Float64} = []
+params!(m::ABAO, p::Vector{Float64}) = nothing
+nb_params(m::ABAO) = 0
 
 struct AGAP <: AbstractMaintenanceModel
 end
+params(m::AGAP)::Vector{Float64} = []
+params!(m::AGAP, p::Vector{Float64}) = nothing
+nb_params(m::AGAP) = 0
 mutable struct QAGAN <: AbstractMaintenanceModel
     ρ::Float64
 end
+params(m::QAGAN)::Vector{Float64} = [m.ρ]
+params!(m::QAGAN, p::Vector{Float64}) = begin;m.ρ = p[1]; nothing; end
 nb_params(m::QAGAN) = 1
 
 mutable struct QR <: AbstractMaintenanceModel
@@ -48,7 +69,8 @@ mutable struct GQR <: GQRMaintenanceModel
     K::Float64
     f::F_GQR
 end
-
+params(m::GQR)::Vector{Float64} = [m.ρ]
+params!(m::GQR, p::Vector{Float64}) = begin;m.ρ = p[1]; nothing; end
 nb_params(m::GQR) = 1
 
 mutable struct GQR_ARA1 <:  GQRMaintenanceModel
@@ -57,6 +79,8 @@ mutable struct GQR_ARA1 <:  GQRMaintenanceModel
     K::Float64
     f::F_GQR
 end
+params(m::GQR_ARA1)::Vector{Float64} = [m.ρQR, m.ρARA]
+params!(m::GQR_ARA1, p::Vector{Float64}) = begin; m.ρQR, m.ρARA = p; nothing; end
 nb_params(m::GQR_ARA1) = 2
 mutable struct GQR_ARAInf <:  GQRMaintenanceModel
     ρQR::Float64
@@ -64,12 +88,9 @@ mutable struct GQR_ARAInf <:  GQRMaintenanceModel
     K::Float64
     f::F_GQR
 end
+params(m::GQR_ARAInf)::Vector{Float64} = [m.ρQR, m.ρARA]
+params!(m::GQR_ARAInf, p::Vector{Float64}) = begin; m.ρQR, m.ρARA = p; nothing; end
 nb_params(m::GQR_ARAInf) = 2
-mutable struct ARAm <: AbstractMaintenanceModel
-    ρ::Float64
-    m::Int
-end
-nb_params(m::ARAm) = 1 # only parameters considered in the optim
 mutable struct GQR_ARAm <: GQRMaintenanceModel
     ρQR::Float64
     ρARA::Float64
@@ -77,6 +98,8 @@ mutable struct GQR_ARAm <: GQRMaintenanceModel
     f::F_GQR
     m::Int
 end
+params(m::GQR_ARAm)::Vector{Float64} = [m.ρQR, m.ρARA]
+params!(m::GQR_ARAm, p::Vector{Float64}) = begin; m.ρQR, m.ρARA = p; nothing; end
 nb_params(m::GQR_ARAm) = 2
 
 function update!(m::ARA1, model::AbstractModel; with_gradient::Bool=false,with_hessian::Bool=false)

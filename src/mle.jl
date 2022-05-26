@@ -34,6 +34,47 @@ end
 #         model.set_params(pars);
 #     }
 
+function contrast(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)
+    alpha = param[0] #;//save current value of alpha
+
+    param[0]=1; #//Rmk: alpha replaces param[0] => a bit weird!
+
+    init!(mle.comp)
+
+    # model.set_params(param);
+    # //printf("System %d\n",1);
+    # model.select_data(0);
+    # if(model.nb_paramsCov > 0) model.select_current_system(0,true);
+    # select_leftCensor(0);
+    # contrast_for_current_system();
+    # //only if multi-system
+    # for(int i=1;i<model.nb_system;i++) {
+    #     //printf("System %d\n",i+1);
+    #     model.select_data(i);
+    #     if(model.nb_paramsCov > 0) model.select_current_system(i,true);
+    #     select_leftCensor(i);
+    #     contrast_for_current_system();
+    # }
+
+    # //DEBUG: printf("alpha=%lf,S0=%lf,S1=%lf,S2=%lf,S3=%lf,S4=%lf\n",alpha,S0,S1,S2,S3,S4);
+    # //printf("params=(%lf,%lf)\n",model.params_cov[0],model.params_cov[1]);
+    # // log-likelihood (with constant +S0*(log(S0)-1))
+    # if(!alpha_fixed) {
+    #     param[0]=S0/S1;
+    #     res[0]=-log(S1) * S0 + S2 +S0*(log(S0)-1)+S3;
+    #     model.set_params(param);//also memorize the current value for alpha which is not 1 in fact
+    # } else {
+    #     param[0]=alpha;
+    #     res[0]=log(alpha)*S0+S2-alpha*S1+S3;
+    #     model.set_params(param);//also memorize the current value for alpha which is not 1 in fact
+    # }
+    # if(model.nb_paramsCov>0) res[0] += S4;
+
+    # param[0]=alpha;//LD:changed for bayesian
+    # return res;
+    # //return res[0]==R_NaN ? R_NegInf : res;
+end
+
 function contrast_current(mle::MLE)
     init_mle(mle)
     n = length(mle.model.time) - 1
@@ -54,7 +95,7 @@ end
 function contrast_update_current(mle::MLE; with_deriv::Bool=false)
     update_Vleft!(mle.model,with_deriv,with_deriv)
     mle.model.hVleft = hazard_rate(mle.model.family, mle.model.Vleft)
-    mle.model.indType = (mle.model.type[(mle.model.k + 1) + 1] < 0 ? 1.0 : 0.0)
+    mle.model.indType = (mle.model.type[mle.model.k + 1] < 0 ? 1.0 : 0.0)
     if false #TODO: mle.model.k >= mle.leftCensor 
         mle.model.comp.S1 += cumulative_hazard_rate(mle.model.family, mle.model.Vleft) - cumulative_hazard_rate(mle.model.family, mle.model.Vright)
     end
@@ -78,46 +119,7 @@ function contrast_update_S(mle::MLE)
     #//printf("Conclusion : S1=%f, S2=%f, S0=%f, S4=%f\n",model.S1,model.S2,model.S0,model.S4);
 end
 
-#     NumericVector contrast(NumericVector param, bool alpha_fixed=false) {
-#         NumericVector res(1);
-#         double alpha=param[0];//save current value of alpha
 
-#         param[0]=1; //Rmk: alpha replaces param[0] => a bit weird!
-
-#         init_mle_vam(false,false);
-#         model.set_params(param);
-#         //printf("System %d\n",1);
-#         model.select_data(0);
-#         if(model.nb_paramsCov > 0) model.select_current_system(0,true);
-#         select_leftCensor(0);
-#         contrast_for_current_system();
-#         //only if multi-system
-#         for(int i=1;i<model.nb_system;i++) {
-#             //printf("System %d\n",i+1);
-#             model.select_data(i);
-#             if(model.nb_paramsCov > 0) model.select_current_system(i,true);
-#             select_leftCensor(i);
-#             contrast_for_current_system();
-#         }
-
-#         //DEBUG: printf("alpha=%lf,S0=%lf,S1=%lf,S2=%lf,S3=%lf,S4=%lf\n",alpha,S0,S1,S2,S3,S4);
-#         //printf("params=(%lf,%lf)\n",model.params_cov[0],model.params_cov[1]);
-#         // log-likelihood (with constant +S0*(log(S0)-1))
-#         if(!alpha_fixed) {
-#           param[0]=S0/S1;
-#           res[0]=-log(S1) * S0 + S2 +S0*(log(S0)-1)+S3;
-#           model.set_params(param);//also memorize the current value for alpha which is not 1 in fact
-#         } else {
-#           param[0]=alpha;
-#           res[0]=log(alpha)*S0+S2-alpha*S1+S3;
-#           model.set_params(param);//also memorize the current value for alpha which is not 1 in fact
-#         }
-#         if(model.nb_paramsCov>0) res[0] += S4;
-
-#         param[0]=alpha;//LD:changed for bayesian
-#         return res;
-#         //return res[0]==R_NaN ? R_NegInf : res;
-#     }
 
 #     void gradient_for_current_system() {
 #         int i,ii;

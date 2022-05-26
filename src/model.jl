@@ -104,6 +104,20 @@ function init!(m::Model)
 		return nothing
 end
 
+nb_params(m::Model)::Int = m.nb_params_family + m.nb_params_maintenance + n.nb_params_cov
+params(m::Model)::Vector{Float64} = cat(params(m.family),(map(m.models) do mm;params(mm); end)...,dims=1)
+function params!(m::Model, p::Vector{Float64})
+	from, to = 1, nb_params(m.family)
+	params!(m.family,p[from:to])
+	for mm in m.models
+		if nb_params(mm) > 0
+			from = to + 1
+			to = from + nb_params(mm) - 1
+			params!(mm, p[from:to])
+		end
+	end
+end
+
 function init_compute!(m::Model)
 	init!(m.comp)
 	for mm in m.models
