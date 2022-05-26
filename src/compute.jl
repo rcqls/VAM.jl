@@ -13,18 +13,38 @@ mutable struct Compute
     d2S1::Vector{Float64}
     d2S2::Vector{Float64}
     d2S3::Vector{Float64}
+    # dims
+    nbm::Int #maintenance
+    nb2m::Int #maintenance deriv order 2
+    nbc::Int #covariate
+    nbd::Int #params for deriv
+    nb2d::Int #deriv order 2
+    Compute() = new()
 end
 
-function init!(c::Compute, m::AbstractModel; with_deriv::Bool = false)
+function Compute(m::AbstractModel)
+    comp = Compute()
+    init_dims!(comp,m)
+    init!(comp,true)
+    return comp
+end
+
+function init_dims!(c::Compute, m::AbstractModel)
+    c.nbm = m.nb_params_maintenance
+    c.nbd = m.nb_params_maintenance + m.nb_params_family - 1
+    c.nb2m = m.nb_params_maintenance * (m.nb_params_maintenance + 1) ÷ 2
+    c.nb2d = c.nbd * (c.nbd + 1) ÷ 2
+    c.nbc = m.nb_params_cov
+end
+
+function init!(c::Compute; with_deriv::Bool = false)
     c.S0, c.S1, c.S2, c.S3, c.S4 = zeros(5)
     if with_deriv
-        nbd = m.nb_params_maintenance + m.nb_params_family - 1
-        nb2d = nbd * (nbd + 1) ÷ 2
-        c.dS1, c.dS2, c.dS3=zeros(nbd), zeros(nbd), zeros(m.nb_params_maintenance)
-        if m.nb_params_cov > 0
-            c.dS4 = zeros(m.nb_params_cov)
+        c.dS1, c.dS2, c.dS3=zeros(c.nbd + c.nbc), zeros(c.nbd), zeros(c.nbm)
+        if c.nbc > 0
+            c.dS4 = zeros(c.nbc)
         end
-        c.d2S1, c.d2S2 = zeros(nb2d), zeros(nb2d)  #inferior diagonal part of the hessian matrice by lines
-        c.d2S3 = zeros(m.nb_params_maintenance * (nb_params_maintenance + 1) ÷ 2)
+        c.d2S1, c.d2S2 = zeros(c.nb2d), zeros(c.nb2d)  #inferior part of the hessian matrice by lines
+        c.d2S3 = zeros(c.nb2m)
     end
 end

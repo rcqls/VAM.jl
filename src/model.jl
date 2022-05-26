@@ -23,7 +23,7 @@ mutable struct Model <: AbstractModel
 	time::Vector{Float64}
 	type::Vector{Int}
 
-    indType::Float64 #TODO: remove S4 if unused!
+    indType::Float64
 
     Vleft::Float64
     Vright::Float64
@@ -100,6 +100,7 @@ function init!(m::Model)
 			m.dVR_prec = zeros(m.mu * m.nb_params_maintenance)
 			m.d2VR_prec = zeros(m.mu * nb2d)
 		end
+		m.comp = Compute(m)
 		return nothing
 end
 
@@ -239,15 +240,15 @@ end
 # 	}
 # }
 
-# double VamModel::compute_covariates() {
-# 	sum_cov=0.0;
-# 	for(int j=0;j<nb_paramsCov;j++) {
-# 		NumericVector var=data_cov[j];
-# 		sum_cov += params_cov[j] * var[current_system];
-# 		//printf("syst=%d,j=%d,th=%lf,params_cov=%lf\n",current_system,j,params_cov[j],var[current_system]);
-# 	}
-# 	return sum_cov;
-# }
+function compute_covariates(m::Model)::Float64
+	sum_cov=0.0
+	# for j in 0:(m.nb_params_cov - 1)
+	# 	# NumericVector var=data_cov[j];
+	# 	# sum_cov += params_cov[j] * var[current_system];
+	# 	# //printf("syst=%d,j=%d,th=%lf,params_cov=%lf\n",current_system,j,params_cov[j],var[current_system]);
+	# end
+	return sum_cov;
+end
 
 has_maintenance_policy(m::Model)::Bool = isdefined(m,:maintenance_policy) || isnothing(m.maintenance_policy)
 

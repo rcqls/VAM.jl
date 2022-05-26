@@ -49,7 +49,7 @@ function update(mp::PeriodicMaintenancePolicy, model::AbstractModel)::NamedTuple
 	time = mp.from + (floor((current - mp.from)/mp.by) + 1) * mp.by
  
 	r=rand(1)[1]
-    t = 0
+    t = 1
 	for p in mp.prob[1:end-1]
         if r < p
             break
@@ -83,8 +83,8 @@ type_size(mp::AtIntensityMaintenancePolicy)::Int = 1
 function update(mp::AtIntensityMaintenancePolicy, model::AbstractModel)::NamedTuple{(:time, :type), Tuple{Float64, Int64}}
     
     mod=update_external_model(mp, model)
-	u=mod.A
-	if mod.nb_params_cov>0 
+	u = mod.A
+	if mod.nb_params_cov > 0 
         # u *= exp(compute_covariates(mod))
     end
 	# 	//ToRemove: double next_time2=model->virtual_age_inverse(model->family->inverse_hazardRate(level[0]));
@@ -139,12 +139,16 @@ end
 
 
 function update(mp::MaintenancePolicyList,model::AbstractModel)
-    time, type =update(mp.policies[1], model);
-    for policy in mp.policies[2:end]
+    time, type = update(mp.policies[1], model)
+    ts = type_size(mp.policies[1])
+    for policy in mp.policies[2:end] 
     	time2, type2 = update(policy, model)
-    	if time2 < time 
+    	println("$time2 < $time ? ")
+        if time2 < time 
             time, type = time2, type2
+            type += ts
         end
+        ts += type_size(policy)
     end
     return (time=time, type=type)
 end

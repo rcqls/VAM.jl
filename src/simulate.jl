@@ -30,7 +30,7 @@ function simulate(sim::Sim, stop::Union{Nothing, Real,Vector{Any}}) #::DataFrame
         #   u *= compute_covariates(sim) #;//set_current_system launched in R for simulation
         end
         timeCM = virtual_age_inverse(sim.model, inverse_cumulative_hazard_rate(sim.model.family, cumulative_hazard_rate(sim.model.family, virtual_age(sim.model,sim.model.time[sim.model.k]))-u))
-       
+       println("timeCM=$timeCM")
         #   TODO: submodels
         id_mod = 0
     #     # List timeAndTypePM;
@@ -41,14 +41,14 @@ function simulate(sim::Sim, stop::Union{Nothing, Real,Vector{Any}}) #::DataFrame
                 print("warning")
             end
         end
-        if !has_maintenance_policy(sim.model) || timeCM < timePM || timePM<sim.model.time[sim.model.k]
+        if !has_maintenance_policy(sim.model) || timeCM < timePM || timePM < sim.model.time[sim.model.k]
             push!(sim.model.time,timeCM)
             push!(sim.model.type, -1)
             id_mod=0
         else
             push!(sim.model.time, timePM)
             #//DEBUG[distrib type1]: typeCptAP++;if(typePM==1) type1CptAP++;printf("typePM=%d\n",typePM);
-            push!(sim.model.type, typePM + 1)
+            push!(sim.model.type, typePM)
             id_mod=typePM
         end
     #     #//printf("k=%d: cm=%lf,pm=%lf\n",model->k,timeCM,timePM);
