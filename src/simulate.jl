@@ -17,7 +17,7 @@ function init!(sim::Sim)
     sim.model.type = [-1]
 end
 
-function simulate(sim::Sim, stop::Union{Nothing, Real,Vector{Any}}) #::DataFrame
+function simulate(sim::Sim, stop::Union{Nothing, Real,Vector{Any}})::DataFrame
     init!(sim)
 
     add_stop_policy!(sim, stop)
@@ -30,7 +30,7 @@ function simulate(sim::Sim, stop::Union{Nothing, Real,Vector{Any}}) #::DataFrame
         #   u *= compute_covariates(sim) #;//set_current_system launched in R for simulation
         end
         timeCM = virtual_age_inverse(sim.model, inverse_cumulative_hazard_rate(sim.model.family, cumulative_hazard_rate(sim.model.family, virtual_age(sim.model,sim.model.time[sim.model.k]))-u))
-       println("timeCM=$timeCM")
+        ##println("timeCM=$timeCM")
         #   TODO: submodels
         id_mod = 0
     #     # List timeAndTypePM;
@@ -63,7 +63,7 @@ function simulate(sim::Sim, stop::Union{Nothing, Real,Vector{Any}}) #::DataFrame
         ## TODO work on stop later
     end
 
-    (time=sim.model.time, type=sim.model.type)
+    DataFrame((time=sim.model.time, type=sim.model.type))
 end
 
 simulate(sim::Sim) = simulate(sim, nothing)

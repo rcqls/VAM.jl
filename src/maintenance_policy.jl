@@ -143,7 +143,7 @@ function update(mp::MaintenancePolicyList,model::AbstractModel)
     ts = type_size(mp.policies[1])
     for policy in mp.policies[2:end] 
     	time2, type2 = update(policy, model)
-    	println("$time2 < $time ? ")
+    	##println("$time2 < $time ? ")
         if time2 < time 
             time, type = time2, type2
             type += ts

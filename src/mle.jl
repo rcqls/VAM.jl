@@ -1,7 +1,7 @@
 mutable struct MLE
     model::Model
-    # leftCensors::Vector{Int} #CAREFUL: this is a vector of indices!
-    # leftCensor::Int #leftCensor for current system
+    leftCensors::Vector{Int} #CAREFUL: this is a vector of indices!
+    leftCensor::Int #leftCensor for current system
 
     comp::Compute
 end
@@ -18,61 +18,57 @@ end
 #       leftCensor=0;
 #     }
 
-#     void select_leftCensor(int i) {
-#       if(leftCensors != NULL) leftCensor=leftCensors[i];
-#     }
+function select_leftCensor(mle::MLE, i::Int)
+    if length(mle.leftCensors) > 0 
+        mle.leftCensor=leftCensors[i]
+    end
+end
 
-#     void set_data(List data_) {
-#         model.set_data(data_);
-#     }
+function contrast(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Float64
+    res = 0
+    alpha = param[1] #;//save current value of alpha
 
-#     NumericVector get_params() {
-#         return model.get_params();
-#     }
-
-#     void set_params(NumericVector pars) {
-#         model.set_params(pars);
-#     }
-
-function contrast(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)
-    alpha = param[0] #;//save current value of alpha
-
-    param[0]=1; #//Rmk: alpha replaces param[0] => a bit weird!
+    param[1] = 1 #//Rmk: alpha replaces param[0] => a bit weird!
 
     init!(mle.comp)
 
-    # model.set_params(param);
+    params!(mle.model,param);
     # //printf("System %d\n",1);
-    # model.select_data(0);
-    # if(model.nb_paramsCov > 0) model.select_current_system(0,true);
-    # select_leftCensor(0);
-    # contrast_for_current_system();
+    select_data(mle.model, 1)
+    # if(model.nb_params_cov > 0) model.select_current_system(0,true);
+    select_leftCensor(mle, 1)
+    contrast_current(mle)
     # //only if multi-system
-    # for(int i=1;i<model.nb_system;i++) {
-    #     //printf("System %d\n",i+1);
-    #     model.select_data(i);
-    #     if(model.nb_paramsCov > 0) model.select_current_system(i,true);
-    #     select_leftCensor(i);
-    #     contrast_for_current_system();
-    # }
+    if mle.model.nb_system > 1
+        for i in 2:mle.model.nb_system 
+            #//printf("System %d\n",i+1);
+            select_data(mle.model, i)
+            if model.nb_params_cov > 0 
+                select_current_system(mle.model, i,true)
+            select_leftCensor(mle, i)
+            contrast_for_current_system()
+            end
+        end
+    end
 
     # //DEBUG: printf("alpha=%lf,S0=%lf,S1=%lf,S2=%lf,S3=%lf,S4=%lf\n",alpha,S0,S1,S2,S3,S4);
     # //printf("params=(%lf,%lf)\n",model.params_cov[0],model.params_cov[1]);
     # // log-likelihood (with constant +S0*(log(S0)-1))
-    # if(!alpha_fixed) {
-    #     param[0]=S0/S1;
-    #     res[0]=-log(S1) * S0 + S2 +S0*(log(S0)-1)+S3;
-    #     model.set_params(param);//also memorize the current value for alpha which is not 1 in fact
-    # } else {
-    #     param[0]=alpha;
-    #     res[0]=log(alpha)*S0+S2-alpha*S1+S3;
-    #     model.set_params(param);//also memorize the current value for alpha which is not 1 in fact
-    # }
-    # if(model.nb_paramsCov>0) res[0] += S4;
+    if !alpha_fixed
+        param[1] = mle.comp.S0 / mle.comp.S1
+        res = -log(mle.comp.S1) * mle.comp.S0 + mle.comp.S2 +  mle.comp.S0 * (log( mle.comp.S0) - 1) +  mle.comp.S3;
+        params!(mle.model, param) #//also memorize the current value for alpha which is not 1 in fact
+    else
+        param[1]=alpha;
+        res=log(alpha)*S0+S2-alpha*S1+S3;
+        params!(mle.model, param) #//also memorize the current value for alpha which is not 1 in fact
+    end
+    if mle.model.nb_params_cov > 0 
+        res += mle.comp.S4
+    end
 
-    # param[0]=alpha;//LD:changed for bayesian
-    # return res;
-    # //return res[0]==R_NaN ? R_NegInf : res;
+    param[1] = alpha #//LD:changed for bayesian
+    return res
 end
 
 function contrast_current(mle::MLE)
@@ -140,13 +136,13 @@ end
 #         for(ii=0;ii<model.nb_params_maintenance;ii++,i++) {
 #             gradient_dS_maintenance_update(i,ii);
 #         }
-#         for(ii=0;ii<model.nb_paramsCov;ii++,i++) {
+#         for(ii=0;ii<model.nb_params_cov;ii++,i++) {
 #             gradient_dS_covariate_update(i,ii);
 #         }
 #     }
 
 #     NumericVector gradient(NumericVector param, bool alpha_fixed=false) {
-#         NumericVector res(model.nb_paramsFamily+model.nb_params_maintenance+model.nb_paramsCov);
+#         NumericVector res(model.nb_paramsFamily+model.nb_params_maintenance+model.nb_params_cov);
 #         double alpha=param[0];//save current value of alpha
 #         int i,ii;
 
@@ -154,13 +150,13 @@ end
 #         init_mle_vam(true,false);
 #         model.set_params(param);
 #         model.select_data(0);
-#         if(model.nb_paramsCov > 0) model.select_current_system(0,true);
+#         if(model.nb_params_cov > 0) model.select_current_system(0,true);
 #         select_leftCensor(0);
 #         gradient_for_current_system();
 #         //only if multi-system
 #         for(i=1;i<model.nb_system;i++) {
 #             model.select_data(i);
-#             if(model.nb_paramsCov > 0) model.select_current_system(i,true);
+#             if(model.nb_params_cov > 0) model.select_current_system(i,true);
 #             select_leftCensor(i);
 #             gradient_for_current_system();
 #         }
@@ -177,7 +173,7 @@ end
 #         for(ii=0;ii<model.nb_params_maintenance;ii++,i++) {
 #             res[i+1] = -dS1[i]*param[0] + dS2[i]+dS3[ii];
 #         }
-#         for(ii=0;ii<model.nb_paramsCov;ii++,i++) {
+#         for(ii=0;ii<model.nb_params_cov;ii++,i++) {
 #             res[i+1] = -dS1[i]*param[0] + dS4[ii] ;
 #         }
 
@@ -202,7 +198,7 @@ end
 #             for(j=0;j<=i;j++) {
 #                 //i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
 #                 k=i*(i+1)/2+j;
-#                 d2S1[k] += model.d2S1[k] * (model.nb_paramsCov > 0 ? exp(model.sum_cov) : 1.0);
+#                 d2S1[k] += model.d2S1[k] * (model.nb_params_cov > 0 ? exp(model.sum_cov) : 1.0);
 #                 d2S2[k] += model.d2S2[k];
 #             }
 #         }
@@ -211,7 +207,7 @@ end
 #             for(j=0;j<=ii;j++) {
 #                  //i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
 #                 k=i*(i+1)/2+j;
-#                 d2S1[k] += model.d2S1[k] * (model.nb_paramsCov > 0 ? exp(model.sum_cov) : 1.0);
+#                 d2S1[k] += model.d2S1[k] * (model.nb_params_cov > 0 ? exp(model.sum_cov) : 1.0);
 #                 d2S2[k] += model.d2S2[k];
 #                 //ii and j(<=ii) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
 #                 kk=ii*(ii+1)/2+j;
@@ -220,11 +216,11 @@ end
 #             for(j=ii+1;j<=i;j++) {
 #                 //i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
 #                 k=i*(i+1)/2+j;
-#                 d2S1[k] += model.d2S1[k] * (model.nb_paramsCov > 0 ? exp(model.sum_cov) : 1.0);
+#                 d2S1[k] += model.d2S1[k] * (model.nb_params_cov > 0 ? exp(model.sum_cov) : 1.0);
 #                 d2S2[k] += model.d2S2[k];
 #             }
 #         }
-#         for(ii=0;ii<model.nb_paramsCov;ii++,i++) {
+#         for(ii=0;ii<model.nb_params_cov;ii++,i++) {
 #             gradient_dS_covariate_update(i,ii);
 #             for(j=0;j<model.nb_paramsFamily-1 + model.nb_params_maintenance;j++) {
 #               k=i*(i+1)/2+j;
@@ -239,21 +235,21 @@ end
 
 #     NumericMatrix hessian(NumericVector param, bool alpha_fixed=false) {
 #         int j;
-#         NumericMatrix res(model.nb_paramsFamily+model.nb_params_maintenance+model.nb_paramsCov,model.nb_paramsFamily+model.nb_params_maintenance+model.nb_paramsCov);
+#         NumericMatrix res(model.nb_paramsFamily+model.nb_params_maintenance+model.nb_params_cov,model.nb_paramsFamily+model.nb_params_maintenance+model.nb_params_cov);
 #         double alpha=param[0];//save current value of alpha
 
 #         param[0]=1;
 #         init_mle_vam(true,true);
 #         model.set_params(param);
 #         model.select_data(0);
-#         if(model.nb_paramsCov > 0) model.select_current_system(0,true);
+#         if(model.nb_params_cov > 0) model.select_current_system(0,true);
 #         select_leftCensor(0);
 #         hessian_for_current_system();
 
 #         //only if multi-system
 #         for(int i=1;i<model.nb_system;i++) {
 #             model.select_data(i);
-#             if(model.nb_paramsCov > 0) model.select_current_system(i,true);
+#             if(model.nb_params_cov > 0) model.select_current_system(i,true);
 #             select_leftCensor(i);
 #             hessian_for_current_system();
 #         }
@@ -286,7 +282,7 @@ end
 #                     res(j+1,i+1) = res(i+1,j+1);
 #                 }
 #             }
-#             for(int i=(model.nb_params_maintenance+model.nb_paramsFamily-1);i<(model.nb_params_maintenance+model.nb_paramsFamily+model.nb_paramsCov-1);i++) {
+#             for(int i=(model.nb_params_maintenance+model.nb_paramsFamily-1);i<(model.nb_params_maintenance+model.nb_paramsFamily+model.nb_params_cov-1);i++) {
 #                res(0,i+1) = 0;
 #                res(i+1,0) = 0;
 #                res(i+1,i+1) = pow(dS1[i],2)/pow(S1,2) * S0-d2S1[i*(i+1)/2+i]/S1 * S0;
@@ -324,7 +320,7 @@ end
 #                     res(j+1,i+1) = res(i+1,j+1);
 #                 }
 #             }
-#             for(int i=(model.nb_params_maintenance+model.nb_paramsFamily-1);i<(model.nb_params_maintenance+model.nb_paramsFamily+model.nb_paramsCov-1);i++) {
+#             for(int i=(model.nb_params_maintenance+model.nb_paramsFamily-1);i<(model.nb_params_maintenance+model.nb_paramsFamily+model.nb_params_cov-1);i++) {
 #                res(0,i+1) = -dS1[i];
 #                res(i+1,0) = -dS1[i];
 #                res(i+1,i+1) = -alpha*d2S1[i*(i+1)/2+i];
@@ -470,15 +466,15 @@ end
 #     }
 
 #     void gradient_dS_maintenance_update(int i,int ii) {
-#         dS1[i] += model.dS1[i] * (model.nb_paramsCov > 0 ? exp(model.sum_cov) : 1.0); dS2[i] += model.dS2[i]; dS3[ii] += model.dS3[ii];
+#         dS1[i] += model.dS1[i] * (model.nb_params_cov > 0 ? exp(model.sum_cov) : 1.0); dS2[i] += model.dS2[i]; dS3[ii] += model.dS3[ii];
 #     }
 
 #     void gradient_dS_family_update(int i) {
-#         dS1[i] += model.dS1[i] * (model.nb_paramsCov > 0 ? exp(model.sum_cov) : 1.0); dS2[i] += model.dS2[i];
+#         dS1[i] += model.dS1[i] * (model.nb_params_cov > 0 ? exp(model.sum_cov) : 1.0); dS2[i] += model.dS2[i];
 #     }
 
 #     void gradient_dS_covariate_update(int i,int ii) {
-#         //nb_paramsCov > 0 necessarily
+#         //nb_params_cov > 0 necessarily
 #         double cov=model.get_covariate(ii);
 #         dS1[i] += model.S1 * cov * exp(model.sum_cov);
 #         //dS2[i]=0
