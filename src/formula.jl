@@ -69,31 +69,32 @@ function parse_model(ex_f::Expr)
     end
 end
 
-macro model(ex_f)
+macro vam(ex_f)
     return parse_model(ex_f)
 end
 
-macro sim(ex_f, ex_s)
-    mod = parse_model(ex_f)
-    sim = Sim(mod, formula_translate(ex_s))
-    init!(sim.model)
-    return sim
-end
+## TO REMOVE
+# macro sim(ex_f, ex_s)
+#     mod = parse_model(ex_f)
+#     sim = Sim(mod, formula_translate(ex_s))
+#     init!(sim.model)
+#     return sim
+# end
 
-macro sim(ex_f)
-    println(ex_f.args)
-    mod = parse_model(ex_f)
-    sim = Sim(mod, nothing)
-    init!(sim.model)
-    return sim
-end
+# macro sim(ex_f)
+#     println(ex_f.args)
+#     mod = parse_model(ex_f)
+#     sim = Sim(mod, nothing)
+#     init!(sim.model)
+#     return sim
+# end
 
 macro stop(ex_s)
-    return ex_s.args
+    return formula_translate(ex_s).args
 end
 
 function formula_translate(ex_f::Expr)
-    Meta.parse(replace(string(ex_f), "size" => "__size__", "time" => "__time__"))
+    Meta.parse(replace(string(ex_f), "size" => "s", "time" => "t"))
 end
 
 function complete_name!(ex::Expr, i::Int, append::String)::Expr

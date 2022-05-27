@@ -20,7 +20,7 @@ function update_external_model(mp::MaintenancePolicyWithExternalModel, model::Ab
             # And then as what it is applied at the end of the simulation step but for mod instead of model!
             update_Vleft(mod) #, false,false) #; //mod->idMod is not yet updated!
             mod.idMod = model.idMod #//mod->idMod is then updated for the next task!
-            update(mod.models[mod.idMod]) #,false,false)
+            update!(mod.models[mod.idMod], mod) #,false,false)
         end
         if model.nb_paramsCov > 0
             mod.data_cov=model.data_cov

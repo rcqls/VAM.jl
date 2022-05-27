@@ -102,13 +102,13 @@ params(m::GQR_ARAm)::Vector{Float64} = [m.ρQR, m.ρARA]
 params!(m::GQR_ARAm, p::Vector{Float64}) = begin; m.ρQR, m.ρARA = p; nothing; end
 nb_params(m::GQR_ARAm) = 2
 
-function update!(m::ARA1, model::AbstractModel; with_gradient::Bool=false,with_hessian::Bool=false)
+function update!(m::ARA1, model::AbstractModel; gradient::Bool=false, hessian::Bool=false)
     model.k += 1
     nk = model.k
     if nk > model.mu 
         nk = model.mu
     end
-    if with_hessian
+    if hessian
         nb2d = model.nb_params_maintenance * (model.nb_params_maintenance + 1) ÷ 2
         for k in nk:-1:1 
             for i in 0:(model.nb_params_maintenance - 1)
@@ -149,7 +149,7 @@ function update!(m::ARA1, model::AbstractModel; with_gradient::Bool=false,with_h
             end 
         end
     end
-    if with_gradient || with_hessian
+    if gradient || hessian
         for k in nk:-1:1
             for i in 0:(model.nb_params_maintenance - 1)
                 model.dVR_prec[k * model.nb_params_maintenance + i] = model.dVR_prec[(k-1) * model.nb_params_maintenance + i]
@@ -183,13 +183,13 @@ function update!(m::ARA1, model::AbstractModel; with_gradient::Bool=false,with_h
     model.Vright += prov
 end
 
-function update!(m::ARAInf, model::AbstractModel;with_gradient::Bool=false,with_hessian::Bool=false)
+function update!(m::ARAInf, model::AbstractModel;gradient::Bool=false,hessian::Bool=false)
     model.k += 1
     nk = model.k
     if nk > model.mu 
         nk = model.mu
     end
-    if with_hessian
+    if hessian
         nb2d = model.nb_params_maintenance * (model.nb_params_maintenance + 1) ÷ 2
         iip = model.id_params * (model.id_params + 1) ÷ 2
         for k in nk:-1:1
@@ -237,7 +237,7 @@ function update!(m::ARAInf, model::AbstractModel;with_gradient::Bool=false,with_
             end
         end
     end
-    if with_gradient || with_hessian
+    if gradient || hessian
         for k in nk:-1:1
             for i in 0:(model.nb_params_maintenance - 1)
                 model.dVR_prec[k * model.nb_params_maintenance + i] = (1 - m.ρ) * model.dVR_prec[(k - 1) * model.nb_params_maintenance + i]
@@ -270,7 +270,7 @@ function update!(m::ARAInf, model::AbstractModel;with_gradient::Bool=false,with_
 end
 
 
-function update!(m::AGAN, model::AbstractModel;with_gradient::Bool=false,with_hessian::Bool=false)
+function update!(m::AGAN, model::AbstractModel;gradient::Bool=false,hessian::Bool=false)
     model.k += 1
     nk = model.k
     if nk > model.mu 
@@ -281,7 +281,7 @@ function update!(m::AGAN, model::AbstractModel;with_gradient::Bool=false,with_he
     for k in 0:(nk - 1)
         model.VR_prec[k + 1] = 0
     end
-    if with_hessian
+    if hessian
         for i in 0:(model.nb_params_maintenance - 1)
             model.dA[i] = 0
             model.dVright[i] = 0
@@ -299,7 +299,7 @@ function update!(m::AGAN, model::AbstractModel;with_gradient::Bool=false,with_he
             end
         end
     end
-    if with_gradient 
+    if gradient 
         for i in 0:(model.nb_params_maintenance - 1) 
             model.dA[i] = 0
             model.dVright[i] = 0
@@ -316,14 +316,14 @@ function update!(m::AGAN, model::AbstractModel;with_gradient::Bool=false,with_he
     end
 end
 
-function update!(m::ABAO, model::AbstractModel;with_gradient::Bool=false,with_hessian::Bool=false)
+function update!(m::ABAO, model::AbstractModel;gradient::Bool=false,hessian::Bool=false)
     model.k += 1
 
     nk = model.k
     if nk > model.mu 
         nk = model.mu
     end
-    if with_hessian
+    if hessian
         for k in nk:-1:1
             for i in 0:(model.nb_params_maintenance - 1)
                 for j in 0:i 
@@ -350,7 +350,7 @@ function update!(m::ABAO, model::AbstractModel;with_gradient::Bool=false,with_he
             end
         end
     end
-    if with_gradient || with_hessian
+    if gradient || hessian
         for k in nk:-1:1
             for i in 0:(model.nb_params_maintenance - 1) 
                 model.dVR_prec[k * model.nb_params_maintenance + i] = model.dVR_prec[(k - 1) * model.nb_params_maintenance + i]
@@ -380,7 +380,7 @@ function update!(m::ABAO, model::AbstractModel;with_gradient::Bool=false,with_he
     model.Vright += prov
 end
 
-function update!(m::AGAP, model::AbstractModel;with_gradient::Bool=false,with_hessian::Bool=false)
+function update!(m::AGAP, model::AbstractModel;gradient::Bool=false,hessian::Bool=false)
      
     model.k += 1
 
@@ -388,7 +388,7 @@ function update!(m::AGAP, model::AbstractModel;with_gradient::Bool=false,with_he
     if nk > model.mu 
         nk = model.mu
     end
-    if with_hessian
+    if hessian
         for k in nk:-1:1
             for i in 0:(model.nb_params_maintenance-1) 
                  for j in 0:i 
@@ -404,7 +404,7 @@ function update!(m::AGAP, model::AbstractModel;with_gradient::Bool=false,with_he
             end
         end
     end
-    if with_gradient || with_hessian 
+    if gradient || hessian 
         for k in nk:-1:1
             for i in 0:(model.nb_params_maintenance-1)
                 model.dVR_prec[k*model.nb_params_maintenance+i]=model.dVR_prec[(k-1)*model.nb_params_maintenance+i];
@@ -427,7 +427,7 @@ function update!(m::AGAP, model::AbstractModel;with_gradient::Bool=false,with_he
 end
 
 
-function update!(m::QAGAN, model::AbstractModel;with_gradient::Bool=false,with_hessian::Bool=false)
+function update!(m::QAGAN, model::AbstractModel;gradient::Bool=false,hessian::Bool=false)
     model.k += 1
 
     nk = model.k
@@ -438,7 +438,7 @@ function update!(m::QAGAN, model::AbstractModel;with_gradient::Bool=false,with_h
     for k in 0:(nk - 1)
         model.VR_prec[k + 1]=0
     end
-    if with_hessian
+    if hessian
         for i in 0:(model.nb_params_maintenance-1) 
             model.dVright[i] = 0;
             for k in 0:nk
@@ -453,7 +453,7 @@ function update!(m::QAGAN, model::AbstractModel;with_gradient::Bool=false,with_h
             end
         end
     end
-    if with_gradient 
+    if gradient 
         for i in 0:(model.nb_params_maintenance-1)
             model.dVright[i] = 0;
             for k in 0:nk
@@ -464,14 +464,14 @@ function update!(m::QAGAN, model::AbstractModel;with_gradient::Bool=false,with_h
 end
 
 
-function update!(m::QR, model::AbstractModel;with_gradient::Bool=false,with_hessian::Bool=false)
+function update!(m::QR, model::AbstractModel;gradient::Bool=false,hessian::Bool=false)
     model.k += 1
 
     nk = model.k
     if nk > model.mu 
         nk = model.mu
     end
-    if  with_hessian
+    if  hessian
         for i in 0:(model.nb_params_maintenance-1) 
              for j in 0:i
                 #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
@@ -491,7 +491,7 @@ function update!(m::QR, model::AbstractModel;with_gradient::Bool=false,with_hess
             model.d2A[i*(i+1)/2+model.id_params] = model.d2A[i*(i+1)/2+model.id_params] + model.dA[i];
         end
     end
-    if with_gradient || with_hessian 
+    if gradient || hessian 
         for i in 0:(model.nb_params_maintenance - 1)
             model.dA[i] = m.ρ *  model.dA[i]
             model.dVright[i] = 0;
@@ -508,14 +508,14 @@ function update!(m::QR, model::AbstractModel;with_gradient::Bool=false,with_hess
     end
 end
 
-function update!(m::GQR, model::AbstractModel;with_gradient::Bool=false,with_hessian::Bool=false)
+function update!(m::GQR, model::AbstractModel;gradient::Bool=false,hessian::Bool=false)
     model.k += 1;
     nk = model.k
     if nk > model.mu 
         nk = model.mu
     end
     K += 1 
-    if with_hessian
+    if hessian
         for i in 0:(model.nb_params_maintenance-1)
              for j in 0:i
                 #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
@@ -536,7 +536,7 @@ function update!(m::GQR, model::AbstractModel;with_gradient::Bool=false,with_hes
             model.d2A[i*(i+1)/2+model.id_params] = model.d2A[i*(i+1)/2+model.id_params] + pow(m.ρ,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/m.ρ*model.dA[i];
         end
     end
-    if with_gradient || with_hessian
+    if gradient || hessian
         for i in 0:(model.nb_params_maintenance-1)
             model.dA[i] = pow(m.ρ,f.eval(K)-f.eval(K-1)) *  model.dA[i];
             model.dVright[i] = 0;
@@ -553,7 +553,7 @@ function update!(m::GQR, model::AbstractModel;with_gradient::Bool=false,with_hes
     end
 end
 
-function update!(m::GQR_ARA1, model::AbstractModel;with_gradient::Bool=false,with_hessian::Bool=false)
+function update!(m::GQR_ARA1, model::AbstractModel;gradient::Bool=false,hessian::Bool=false)
     K += 1
     model.k += 1;
 
@@ -562,7 +562,7 @@ function update!(m::GQR_ARA1, model::AbstractModel;with_gradient::Bool=false,wit
         nk = model.mu
     end
     # //printf("ARAinf k=%d,max_mem=%d, nk=%d\n",model.k,model.max_mem,nk);
-    if with_hessian
+    if hessian
         for k in nk:-1:1
             for i in 0:(model.nb_params_maintenance-1)
                  for j in 0:i
@@ -617,7 +617,7 @@ function update!(m::GQR_ARA1, model::AbstractModel;with_gradient::Bool=false,wit
             model.d2A[i*(i+1)/2+model.id_params] = model.d2A[i*(i+1)/2+model.id_params] + pow(m.ρ_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/m.ρ_QR*model.dA[i];
         end
     end
-    if with_gradient || with_hessian
+    if gradient || hessian
         for k in nk:-1:1
             for i in 0:(model.nb_params_maintenance-1)
                 model.dVR_prec[k*model.nb_params_maintenance+i]=model.dVR_prec[(k-1)*model.nb_params_maintenance+i];
@@ -655,7 +655,7 @@ function update!(m::GQR_ARA1, model::AbstractModel;with_gradient::Bool=false,wit
     model.A=pow(m.ρ_QR,f.eval(K)-f.eval(K-1))*model.A;
 end
 
-function update!(m::GQR_ARAInf, model::AbstractModel;with_gradient::Bool=false,with_hessian::Bool=false)
+function update!(m::GQR_ARAInf, model::AbstractModel;gradient::Bool=false,hessian::Bool=false)
     K += 1
     model.k += 1
 
@@ -665,7 +665,7 @@ function update!(m::GQR_ARAInf, model::AbstractModel;with_gradient::Bool=false,w
         nk = model.mu
     end
     # //printf("ARAinf k=%d,max_mem=%d, nk=%d\n",model.k,model.max_mem,nk);
-    if  with_hessian
+    if  hessian
         for k in nk:-1:1
             for i in 0:(model.nb_params_maintenance-1)
                  for j in 0:i
@@ -723,7 +723,7 @@ function update!(m::GQR_ARAInf, model::AbstractModel;with_gradient::Bool=false,w
             model.d2A[i*(i+1)/2+model.id_params] = model.d2A[i*(i+1)/2+model.id_params] + pow(m.ρ_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/m.ρ_QR*model.dA[i];
         end
     end
-    if with_gradient || with_hessian
+    if gradient || hessian
         for k in nk:-1:1
             for i in 0:(model.nb_params_maintenance-1)
                 model.dVR_prec[k*model.nb_params_maintenance+i]=(1-m.ρ_ARA)*model.dVR_prec[(k-1)*model.nb_params_maintenance+i];
@@ -758,7 +758,7 @@ function update!(m::GQR_ARAInf, model::AbstractModel;with_gradient::Bool=false,w
     model.A=pow(m.ρ_QR,f.eval(K)-f.eval(K-1))*model.A;
 end
 
-function update!(m::ARAm, model::AbstractModel;with_gradient::Bool=false,with_hessian::Bool=false)
+function update!(m::ARAm, model::AbstractModel;gradient::Bool=false,hessian::Bool=false)
     model.k += 1;
 
     nk = model.k
@@ -771,7 +771,7 @@ function update!(m::ARAm, model::AbstractModel;with_gradient::Bool=false,with_he
     end
 
     # //printf("ARAinf k=%d,max_mem=%d, nk=%d\n",model.k,model.max_mem,nk);
-    if with_hessian
+    if hessian
         for k in nk:-1:1
             for i in 0:(model.nb_params_maintenance-1)
                  for j in 0:i
@@ -859,7 +859,7 @@ function update!(m::ARAm, model::AbstractModel;with_gradient::Bool=false,with_he
             end
         end
     end
-    if with_gradient || with_hessian
+    if gradient || hessian
         for k in nk:-1:1
             for i in 0:(model.nb_params_maintenance-1)
                 model.dVR_prec[k*model.nb_params_maintenance+i]=model.dVR_prec[(k-1)*model.nb_params_maintenance+i];
@@ -929,7 +929,7 @@ function update!(m::ARAm, model::AbstractModel;with_gradient::Bool=false,with_he
     #//printf("Apres Vright=%f, nk=%i, nk2=%i, VRprec[0]=%f, VRprec[1]=%f, VRprec[2]=%f\n",model.Vright,nk,nk2,model.VR_prec[0],model.VR_prec[1],model.VR_prec[2]); 
 end
 
-function update!(m::GQR_ARAm, model::AbstractModel;with_gradient::Bool=false,with_hessian::Bool=false)
+function update!(m::GQR_ARAm, model::AbstractModel;gradient::Bool=false,hessian::Bool=false)
     model.k += 1;
     K += 1
 
@@ -942,7 +942,7 @@ function update!(m::GQR_ARAm, model::AbstractModel;with_gradient::Bool=false,wit
         nk2 = m-1
     end
     # //printf("ARAinf k=%d,max_mem=%d, nk=%d\n",model.k,model.max_mem,nk);
-    if with_hessian
+    if hessian
         for k in nk:-1:1
             for i in 0:(model.nb_params_maintenance-1)
                  for j in 0:i
@@ -1045,7 +1045,7 @@ function update!(m::GQR_ARAm, model::AbstractModel;with_gradient::Bool=false,wit
             model.d2A[i*(i+1)/2+model.id_params] = model.d2A[i*(i+1)/2+model.id_params] + pow(m.ρ_QR,f.eval(K)-f.eval(K-1))*(f.eval(K)-f.eval(K-1))/m.ρ_QR*model.dA[i];
         end
     end
-    if with_gradient || with_hessian
+    if gradient || hessian
         for k in nk:-1:1
             for i in 0:(model.nb_params_maintenance-1)
                 model.dVR_prec[k*model.nb_params_maintenance+i]=model.dVR_prec[(k-1)*model.nb_params_maintenance+i];

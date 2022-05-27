@@ -10,6 +10,9 @@ mutable struct Model <: AbstractModel
     nb_params_cov::Int
 	mu::Int
 
+	time::Vector{Float64}
+	type::Vector{Int}
+
 	data::Vector{DataFrame}
 	models::Vector{AbstractMaintenanceModel}
 	family::FamilyModel
@@ -19,9 +22,6 @@ mutable struct Model <: AbstractModel
 	data_cov::DataFrame
 	params_cov::Vector{Float64}
 	sum_cov::Float64 #to save the computation
-
-	time::Vector{Float64}
-	type::Vector{Int}
 
     indType::Float64
 
@@ -146,21 +146,27 @@ function update_Vleft!(m::Model;with_gradient::Bool=false, with_hessian::Bool=fa
 	end
 end
 
-# void VamModel::set_data(List data_) {
-# 	data=data_;
-# 	nb_system=data.size();
-# 	//printf("Number of systems: %d\n",nb_system);
-# 	select_data(0);//default when only one system no need to
-# }
+function data!(m::Model,data::Union{DataFrame, DataFrame})
+	m.data=DataFrame[]
+	if size(data,2) == 2
+		push!(m.data, data)
+		m.nb_system = 1
+	elseif size(data,2) == 3
+		m.nb_system=maximum(data[1])
+		for syst in sort(unique(data[1]))
+			push!(m.data, data[data[1]==syst,2:3]) 
+		end
+	end
+	select_data(m,1) #;//default when only one system no need to
+end
 
-# void VamModel::select_data(int i) {
-# 	//In particular, if no data the following is skipped!
-# 	if(data.size() > i) {
-# 		List data2=data[i];
-# 		//OLD CODE before gcc6: time = data2[0]; type = data2[1];//0 stand for Time and 1 for Type
-# 		time = as<std::vector<double> >(data2[0]); type = as<std::vector<int> >(data2[1]); //Thanks to Lea, seems to be related to introduction of gcc Version 6 (see also https://github.com/apache/incubator-mxnet/issues/2185)
-# 	}
-# }
+function select_data(m::Model, i::Int)
+	if length(m.data) >= i
+		data=m.data[i]
+		m.time = data[!,1]
+		m.type = data[!,2]
+	end
+end
 
 # DataFrame VamModel::get_selected_data(int i) {
 # 	select_data(i);//Skipped if data is unset (see above)

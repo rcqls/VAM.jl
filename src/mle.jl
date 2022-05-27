@@ -4,7 +4,18 @@ mutable struct MLE
     leftCensor::Int #leftCensor for current system
 
     comp::Compute
+    MLE() = new()
 end
+function MLE(model::Model, data::DataFrame)::MLE
+    mle = MLE()
+    mle.model = model
+    init!(mle.model)
+    mle.comp = Compute(mle.model)
+    data!(mle.model, data)
+    return mle
+end
+
+mle(model::Model, data::DataFrame)::MLE = MLE(model, data)
 
 ## TODO: deal with leftCensors
 #     void set_leftCensors(IntegerVector leftCensorsR) {
@@ -83,16 +94,16 @@ function contrast_current(mle::MLE)
             type=0
         end
         #//model.indMode = (type < 0 ? 0 : type);
-        update!(mle.model.models[1 + type])
+        update!(mle.model.models[1 + type], model)
     end
     contrast_update_S(mle)
 end
 
 function contrast_update_current(mle::MLE; with_deriv::Bool=false)
-    update_Vleft!(mle.model,with_deriv,with_deriv)
+    update_Vleft!(mle.model,with_gradient=with_deriv,with_hessian=with_deriv)
     mle.model.hVleft = hazard_rate(mle.model.family, mle.model.Vleft)
     mle.model.indType = (mle.model.type[mle.model.k + 1] < 0 ? 1.0 : 0.0)
-    if false #TODO: mle.model.k >= mle.leftCensor 
+    if mle.model.k >= mle.leftCensor 
         mle.model.comp.S1 += cumulative_hazard_rate(mle.model.family, mle.model.Vleft) - cumulative_hazard_rate(mle.model.family, mle.model.Vright)
     end
     mle.model.comp.S2 += log(mle.model.hVleft) * model.indType
@@ -368,7 +379,7 @@ end
 # end
 
 # Rcpp -> init_mle_vam_for_current_system
-function init_mle(mle::MLE; with_deriv::Bool=false)
+function init_mle(mle::MLE; deriv::Bool=false)
      
     for mm in mle.model.models
         init!(mm)
@@ -379,7 +390,7 @@ function init_mle(mle::MLE; with_deriv::Bool=false)
     mle.model.A = 1
     mle.model.k = 0
     mle.model.id_mod = 0 #id of current model
-    init!(mle.model.comp, with_deriv)
+    init!(mle.model.comp, deriv=deriv)
 
     for type in mle.model.type
         if type < 0 

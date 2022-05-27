@@ -1,9 +1,18 @@
-mutable struct Sim
+mutable struct Simulator
     model::Model
     stop_policy::Union{Nothing,Expr}
 end
 
-function init!(sim::Sim)
+function simulator(model::Model, stop::Union{Nothing, Real, Vector{Any}})::Simulator
+    sim = Simulator(model, nothing)
+    add_stop_policy!(sim, stop)
+    init!(sim.model)
+    return sim
+end
+
+sim(model::Model, stop::Union{Nothing, Real, Vector{Any}})::Simulator = simulator(model, stop)
+
+function init!(sim::Simulator)
     #// Almost everything in the 5 following lines are defined in model->init_computation_values() (but this last one initializes more than this 5 lines)
     sim.model.Vright=0
     sim.model.A=1
@@ -17,7 +26,7 @@ function init!(sim::Sim)
     sim.model.type = [-1]
 end
 
-function simulate(sim::Sim, stop::Union{Nothing, Real, Vector{Any}}; system::Int=1)::DataFrame
+function simulate(sim::Simulator, stop::Union{Nothing, Real, Vector{Any}}; system::Int=1)::DataFrame
     add_stop_policy!(sim, stop)
     has_maintenance_policy(sim.model) || first(sim.model.maintenance_policy)
     data = DataFrame()
@@ -70,23 +79,24 @@ function simulate(sim::Sim, stop::Union{Nothing, Real, Vector{Any}}; system::Int
     data
 end
 
-simulate(sim::Sim; system::Int=1) = simulate(sim, nothing, system=system)
+simulate(sim::Simulator; system::Int=1) = simulate(sim, nothing, system=system)
 
-function ok(sim::Sim)::Bool
+function ok(sim::Simulator)::Bool
     s = length(sim.model.time)
     t = sim.model.time[sim.model.k]
-    eval(:(__size__=$s;__time__=$t))
+    eval(:(s=$s))
+    eval(:(t=$t))
     eval(sim.stop_policy)
 end
 
-function add_stop_policy!(sim::Sim, stop::Union{Nothing, Real,Vector{Any}})
+function add_stop_policy!(sim::Simulator, stop::Union{Nothing, Real,Vector{Any}})
     if isa(stop,Int)
-        sim.stop_policy = Expr(:call, :<=, :__size__,  stop)
+        sim.stop_policy = Expr(:call, :<=, :s,  stop)
     elseif isnothing(stop)
         if isnothing(sim.stop_policy)
-            sim.stop_policy = Expr(:call, :<=, :__size__,  100)
+            sim.stop_policy = Expr(:call, :<=, :s,  100)
         end
     else  
-        sim.stop_policy = formula_translate(Expr(:call, stop...))
+        sim.stop_policy =  formula_translate(Expr(:call, stop...))
     end
 end
