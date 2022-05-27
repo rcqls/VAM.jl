@@ -76,13 +76,13 @@ function simulate(sim::Simulator, stop::Union{Nothing, Real, Vector{Any}}; syste
     if system ==1
         data = data[:,[:time, :type]]
     end
-    data
+    data[2:size(data,1),:]
 end
 
 simulate(sim::Simulator; system::Int=1) = simulate(sim, nothing, system=system)
 
 function ok(sim::Simulator)::Bool
-    s = length(sim.model.time)
+    s = length(sim.model.time) - 1 # 1st is 0 time to be removed when returned
     t = sim.model.time[sim.model.k]
     eval(:(s=$s))
     eval(:(t=$t))

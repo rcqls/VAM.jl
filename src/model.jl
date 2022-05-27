@@ -152,9 +152,9 @@ function data!(m::Model,data::Union{DataFrame, DataFrame})
 		push!(m.data, data)
 		m.nb_system = 1
 	elseif size(data,2) == 3
-		m.nb_system=maximum(data[1])
-		for syst in sort(unique(data[1]))
-			push!(m.data, data[data[1]==syst,2:3]) 
+		m.nb_system=maximum(data[!,1])
+		for syst in sort(unique(data[!,1]))
+			push!(m.data, data[data[!,1].==syst,2:3]) 
 		end
 	end
 	select_data(m,1) #;//default when only one system no need to
