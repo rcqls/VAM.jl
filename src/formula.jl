@@ -25,47 +25,57 @@ function parse_model(ex_f::Expr)
         m.models = AbstractMaintenanceModel[]
         #print(ex_m.args)
         if ex_m.args[2].args[1] == :|
-            push!(m.models,eval(ex_m.args[2].args[2])) # CM (Corrective Maintenance)
-            fm = ex_m.args[2].args[3]
-            #fm.args[1] = complete_name(fm.args[1], "FamilyModel")
-            if isa(fm.args[2], Expr) && fm.args[2].head == :parameters
-                # covariates
-                fm2=Expr(:call, fm.args[1], fm.args[3:end]..., fm.args[2].args[1].args)
-                println(fm2)
-                m.family = eval(complete_name!(fm2, 1, "FamilyModel"))
-            else
-                m.family = eval(complete_name!(fm, 1, "FamilyModel"))
-            end
-        end 
-        ## PMs (Preventive Maintenances) and MPs (Maintenance Policies)
-        ex_pm = ex_m.args[3]
-        if ex_pm.args[1] == :|
-            # PMs
-            ex_pms = ex_pm.args[2]
-            if ex_pms.args[1] == :+
-                # several PMs
-                for pm in ex_pms.args[2:end]
-                    push!(m.models,eval(pm))
+            ex_cm = ex_m.args[2]
+            parse_cm(m, ex_cm)
+            ## PMs (Preventive Maintenances) and MPs (Maintenance Policies)
+            ex_pm = ex_m.args[3]
+            if ex_pm.args[1] == :|
+                # PMs
+                ex_pms = ex_pm.args[2]
+                if ex_pms.args[1] == :+
+                    # several PMs
+                    for pm in ex_pms.args[2:end]
+                        push!(m.models,eval(pm))
+                    end
+                else
+                    # only 1 PM
+                    push!(m.models,eval(ex_pms))
                 end
-            else
-                # only 1 PM
-                push!(m.models,eval(ex_pms))
-            end
-            # Maintenance policies
-            ex_mps = ex_pm.args[3]
-            if ex_mps.args[1] == :*
-                # several MPs
-                maintenance_policies = AbstractMaintenancePolicy[]
-                for mp in ex_mps.args[2:end]
-                    push!(maintenance_policies,eval(complete_name!(mp,1,"MaintenancePolicy")))
+                # Maintenance policies
+                ex_mps = ex_pm.args[3]
+                if ex_mps.args[1] == :*
+                    # several MPs
+                    maintenance_policies = AbstractMaintenancePolicy[]
+                    for mp in ex_mps.args[2:end]
+                        push!(maintenance_policies,eval(complete_name!(mp,1,"MaintenancePolicy")))
+                    end
+                    m.maintenance_policy = MaintenancePolicyList(maintenance_policies)
+                else
+                    # only 1 MP
+                    m.maintenance_policy = eval(complete_name!(ex_mps,1,"MaintenancePolicy"))
                 end
-                m.maintenance_policy = MaintenancePolicyList(maintenance_policies)
-            else
-                # only 1 MP
-                m.maintenance_policy = eval(complete_name!(ex_mps,1,"MaintenancePolicy"))
             end
+        else
+            ##No PM
+            parse_cm(m, ex_m)
         end
         return m
+    end
+end
+
+function parse_cm(m::AbstractModel,ex_cm::Expr)
+    if ex_cm.args[1] == :|
+        push!(m.models,eval(ex_cm.args[2])) # CM (Corrective Maintenance)
+        fm = ex_cm.args[3]
+        #fm.args[1] = complete_name(fm.args[1], "FamilyModel")
+        if isa(fm.args[2], Expr) && fm.args[2].head == :parameters
+            # covariates
+            fm2=Expr(:call, fm.args[1], fm.args[3:end]..., fm.args[2].args[1].args)
+            println(fm2)
+            m.family = eval(complete_name!(fm2, 1, "FamilyModel"))
+        else
+            m.family = eval(complete_name!(fm, 1, "FamilyModel"))
+        end
     end
 end
 

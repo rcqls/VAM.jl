@@ -1,7 +1,7 @@
 mutable struct MLE
     model::Model
-    leftCensors::Vector{Int} #CAREFUL: this is a vector of indices!
-    leftCensor::Int #leftCensor for current system
+    left_censors::Vector{Int} #CAREFUL: this is a vector of indices!
+    left_censor::Int #leftCensor for current system
 
     comp::Compute
     MLE() = new()
@@ -12,26 +12,20 @@ function MLE(model::Model, data::DataFrame)::MLE
     init!(mle.model)
     mle.comp = Compute(mle.model)
     data!(mle.model, data)
+    left_censors!(mle, Int[])
     return mle
 end
 
 mle(model::Model, data::DataFrame)::MLE = MLE(model, data)
 
-## TODO: deal with leftCensors
-#     void set_leftCensors(IntegerVector leftCensorsR) {
-#       leftCensors=new int[model.nb_system];
-#       for(int i=0; i<leftCensorsR.size();i++) leftCensors[i]=leftCensorsR[i];
-#     }
-
-#     void reset_leftCensors() {
-#       if(leftCensors != NULL) delete[] leftCensors;
-#       leftCensors=NULL;
-#       leftCensor=0;
-#     }
+## TODO: deal with left_censors
+function left_censors!(m::MLE, left_censors::Vector{Int})
+      m.left_censors = left_censors
+end
 
 function select_leftCensor(mle::MLE, i::Int)
-    if length(mle.leftCensors) > 0 
-        mle.leftCensor=leftCensors[i]
+    if length(mle.left_censors) > 0 
+        mle.leftCensor=left_censors[i]
     end
 end
 
@@ -55,10 +49,10 @@ function contrast(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Fl
             #//printf("System %d\n",i+1);
             select_data(mle.model, i)
             if model.nb_params_cov > 0 
-                select_current_system(mle.model, i,true)
+                select_current_system(mle.model, i, true)
+            end
             select_leftCensor(mle, i)
             contrast_for_current_system()
-            end
         end
     end
 
@@ -85,7 +79,7 @@ end
 function contrast_current(mle::MLE)
     init_mle(mle)
     n = length(mle.model.time) - 1
-    while (model.k < n)
+    while (mle.model.k < n)
         # //printf("  Time=%f, Type=%d\n",model.time[model.k+1],model.type[model.k+1]);
         contrast_update_current(mle)
         #// previous model for the next step
@@ -99,8 +93,8 @@ function contrast_current(mle::MLE)
     contrast_update_S(mle)
 end
 
-function contrast_update_current(mle::MLE; with_deriv::Bool=false)
-    update_Vleft!(mle.model,with_gradient=with_deriv,with_hessian=with_deriv)
+function contrast_update_current(mle::MLE; deriv::Bool=false)
+    update_Vleft!(mle.model,with_gradient=deriv,with_hessian=deriv)
     mle.model.hVleft = hazard_rate(mle.model.family, mle.model.Vleft)
     mle.model.indType = (mle.model.type[mle.model.k + 1] < 0 ? 1.0 : 0.0)
     if mle.model.k >= mle.leftCensor 
@@ -374,8 +368,8 @@ end
 #     }
 
 
-# function init_mle_vam(mle::MLE;with_deriv::Bool=false)
-#     init!(mle.comp,with_deriv)
+# function init_mle_vam(mle::MLE;deriv::Bool=false)
+#     init!(mle.comp,deriv)
 # end
 
 # Rcpp -> init_mle_vam_for_current_system
@@ -394,10 +388,10 @@ function init_mle(mle::MLE; deriv::Bool=false)
 
     for type in mle.model.type
         if type < 0 
-            mle.model.S0 += 1
+            mle.model.comp.S0 += 1
         end
     end
-    if with_deriv
+    if deriv
         mle.model.dVright = zeros(mle.model.comp.nbd)
         mle.model.dA = zeros(mle.model.comp.nbd)
         nb2m = mle.model.nb_params_maintenance * (mle.model.nb_params_maintenance + 1) ÷ 2
