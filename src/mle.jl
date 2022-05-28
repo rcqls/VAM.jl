@@ -29,7 +29,7 @@ function select_leftCensor(mle::MLE, i::Int)
     end
 end
 
-function contrast(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Float64
+function contrast(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=true)::Float64
     res = 0
     alpha = param[1] #;//save current value of alpha
 
@@ -64,8 +64,8 @@ function contrast(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Fl
         res = -log(mle.comp.S1) * mle.comp.S0 + mle.comp.S2 +  mle.comp.S0 * (log( mle.comp.S0) - 1) +  mle.comp.S3;
         params!(mle.model, param) #//also memorize the current value for alpha which is not 1 in fact
     else
-        param[1]=alpha;
-        res=log(alpha)*S0+S2-alpha*S1+S3;
+        param[1] = alpha
+        res = log(alpha) * mle.comp.S0 + mle.comp.S2 - alpha * mle.comp.S1 + mle.comp.S3
         params!(mle.model, param) #//also memorize the current value for alpha which is not 1 in fact
     end
     if mle.model.nb_params_cov > 0 

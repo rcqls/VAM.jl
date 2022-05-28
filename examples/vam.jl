@@ -42,3 +42,4 @@ c = -1.62415430907299
 # expect_that(logLik(mle,theta,FALSE,FALSE,TRUE),equals(d2lnL,tolerance=0.00000000000001))
 	
 VAM.contrast(m,θ)
+params(m.model)
