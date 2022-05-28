@@ -32,7 +32,7 @@ m = mle(
 )
 m.model.k
 θ = [0.3,1.8,0.6]
-# lnL = -2.30449245951301
+lnL = -2.30449245951301
 # dlnL = [-5.52619699756427,-1.45367181592636,0]
 # d2lnL = vcat([[-11.1111111111111,-10.7372278181901,0],[-10.7372278181901,-4.21250787723964,0],[0,0,0]]...)
 c = -1.62415430907299
@@ -42,5 +42,6 @@ c = -1.62415430907299
 # expect_that(logLik(mle,theta,FALSE,TRUE,FALSE),equals(dlnL,tolerance=0.00000000000001))
 # expect_that(logLik(mle,theta,FALSE,FALSE,TRUE),equals(d2lnL,tolerance=0.00000000000001))
 VAM.contrast(m,θ)
+VAM.contrast(m,θ, alpha_fixed=true)
 @run VAM.contrast(m,θ)
 params(m.model)

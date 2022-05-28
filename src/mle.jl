@@ -20,16 +20,17 @@ mle(model::Model, data::DataFrame)::MLE = MLE(model, data)
 
 ## TODO: deal with left_censors
 function left_censors!(m::MLE, left_censors::Vector{Int})
-      m.left_censors = left_censors
+    m.left_censors = left_censors
+    m.left_censor = 0
 end
 
 function select_left_censor(mle::MLE, i::Int)
-    if length(mle.left_censors) > 0 
+    if length(mle.left_censors) >= i 
         mle.left_censor=left_censors[i]
     end
 end
 
-function contrast(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=true)::Float64
+function contrast(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Float64
     res = 0
     alpha = param[1] #;//save current value of alpha
 
@@ -52,11 +53,11 @@ function contrast(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=true)::Flo
                 select_current_system(mle.model, i, true)
             end
             select_left_censor(mle, i)
-            contrast_for_current_system()
+            contrast_current(mle)
         end
     end
 
-    # //DEBUG: printf("alpha=%lf,S0=%lf,S1=%lf,S2=%lf,S3=%lf,S4=%lf\n",alpha,S0,S1,S2,S3,S4);
+    # //DEBUG: println("alpha=$alpha,S0=$(mle.comp.S0),S1=$(mle.comp.S1),S2=$(mle.comp.S2),S3=$(mle.comp.S3),S4=$(mle.comp.S4)")
     # //printf("params=(%lf,%lf)\n",model.params_cov[0],model.params_cov[1]);
     # // log-likelihood (with constant +S0*(log(S0)-1))
     if !alpha_fixed
@@ -120,71 +121,132 @@ function contrast_update_S(mle::MLE)
     #//printf("Conclusion : S1=%f, S2=%f, S0=%f, S4=%f\n",model.S1,model.S2,model.S0,model.S4);
 end
 
+function gradient(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)
+    res = zeros(mle.model.nb_params_family + mle.model.nb_params_maintenance + model.nb_params_cov)
+    alpha=param[1] #save current value of alpha
+
+    param[1]=1
+    init!(mle.comp, deriv = true)
+    params!(mle.model, param)
+    select_data(mle.model, 1)
+    # if(model.nb_params_cov > 0) model.select_current_system(0,true);
+    select_left_censor(mle, 1)
+    gradient_current_system(mle)
+    # //only if multi-system
+    if mle.model.nb_system > 1
+        for i in 2:mle.model.nb_system 
+            select_data(mle.model, i)
+            if model.nb_params_cov > 0 
+                select_current_system(mle.model, i, true)
+            end
+            select_left_censor(mle, i)
+            gradient_current(mle)
+        end
+    end
+    # compute gradient
+    param[1] = alpha_fixed ? alpha : mle.comp.S0 / mle.Comp.S1
+
+    params!(mle.model, param) # also memorize the current value for alpha which is not 1 in fact
+
+    res[1] = alpha_fixed ? mle.comp.S0/alpha - mle.comp.S1 : 0
+    
+    np = 1
+    for i in 1:mle.model.nb_params_family
+        res[i + np] = -dS1[i] * param[1] + dS2[i]
+    end
+    np += mle.model.nb_params_family
+    if mle.model.nb_params_maintenance > 0
+        for i in 1:mle.model.nb_params_maintenance
+            res[i + np] = -dS1[i + np - 1] * param[1] + dS2[i + np - 1] + dS3[i]
+        end
+    end
+    np += mle.nb_params_maintenance
+    if model.nb_params_cov > 0
+    for i in 1:model.nb_params_cov
+        res[i + np] = -dS1[i + np - 1] * param[1] + dS4[i]
+    end
+
+    param[1] = alpha ## BIZARRE!
+    return res
+end
 
 
-#     void gradient_for_current_system() {
-#         int i,ii;
-#     	init_mle_vam_for_current_system(true,false);
-#     	int n=(model.time).size() - 1;
-#     	while(model.k < n) {
-#     		gradient_update_for_current_system();
-#     		int type=model.type[model.k + 1 ];
-# 			if(type < 0) type=0;
-# 			//model.indMode = (type < 0 ? 0 : type);
-# 			model.models.at(type).update(true,false);
-#     	}
-#         contrast_S_update();
-#         //precomputation of covariate term to multiply (in fact just exp)
-#         for(i=0;i<model.nb_paramsFamily-1;i++) {
-#             gradient_dS_family_update(i);
-#         }
-#         for(ii=0;ii<model.nb_params_maintenance;ii++,i++) {
-#             gradient_dS_maintenance_update(i,ii);
-#         }
-#         for(ii=0;ii<model.nb_params_cov;ii++,i++) {
-#             gradient_dS_covariate_update(i,ii);
-#         }
-#     }
 
-#     NumericVector gradient(NumericVector param, bool alpha_fixed=false) {
-#         NumericVector res(model.nb_paramsFamily+model.nb_params_maintenance+model.nb_params_cov);
-#         double alpha=param[0];//save current value of alpha
-#         int i,ii;
+function gradient_current(mle::MLE)
+    init_mle(mle, deriv = true)
+    n = length(mle.model.time)
+    while mle.model.k < n
+        gradient_update_current(mle)
+        type = mle.model.type[mle.model.k + 1]
+        if type < 0 
+            type = 0
+        end
+        # //model.indMode = (type < 0 ? 0 : type)
+        update!(mle.model.models[1 + type], mle.model, deriv = true)
+    end
+    contrast_update_S(mle)
+    #//precomputation of covariate term to multiply (in fact just exp)
+    for i = 1:mle.model.nb_params_family
+        gradient_update_dS_family_update(mle, i)
+    end
+    np = mle.model.nb_params_family
+    for i in 1:mle.model.nb_params_maintenance
+        gradient_update_dS_maintenance(i + np,i)
+    end
+    np += mle.model.nb_params_cov
+    for i in 1:mle.model.nb_params_cov
+        gradient_update_dS_covariate(i + np, i)
+    end
+end
 
-#         param[0]=1;
-#         init_mle_vam(true,false);
-#         model.set_params(param);
-#         model.select_data(0);
-#         if(model.nb_params_cov > 0) model.select_current_system(0,true);
-#         select_left_censor(0);
-#         gradient_for_current_system();
-#         //only if multi-system
-#         for(i=1;i<model.nb_system;i++) {
-#             model.select_data(i);
-#             if(model.nb_params_cov > 0) model.select_current_system(i,true);
-#             select_left_censor(i);
-#             gradient_for_current_system();
-#         }
-#         //compute gradient
-#         param[0] = (alpha_fixed ? alpha : S0 / S1);
+function gradient_update_current(mle::MLE)
+    contrast_update_current(mle, deriv =true)
 
-#         model.set_params(param);//also memorize the current value for alpha which is not 1 in fact
+    cumhVright_param_derivative = cumulative_hazard_rate_param_derivative(mle.model.family, model.Vright, true)
+    cumhVleft_param_derivative=cumulative_hazard_rate_param_derivative(mle.model.family, model.Vleft, false)
+    hVleft_param_derivative=hazard_rate_param_derivative(mle.model.family, model.Vleft, false)
+    for i in 1:mle.model.nb_params_family
+        if mle.model.k >= mle.left_censor 
+            mle.model.comp.dS1[i] +=  cumhVleft_param_derivative[i]-cumhVright_param_derivative[i]
+        end
+        mle.model.comp.dS2[i] += hVleft_param_derivative[i] / mle.model.hVleft * mle.model.indType
+    end
+    hVright=hazard_rate(mle.model.family, model.Vright)
+    dhVleft=hazard_rate_derivative(mle.model.family, model.Vleft)
+    # printf("k:%d,hVright:%lf,dhVleft:%lf,indType:%lf\n",model.k,hVright,dhVleft,model.indType);
+    np = mle.model.nb_params_family
+    for i in 1:mle.model.nb_params_maintenance
+        if mle.model.k >= mle.left_censor 
+            mle.model.comp.dS1[i + np] += mle.model.hVleft * mle.model.dVleft[i] - hVright * mle.model.dVright[i]
+        end
+        # printf("dS1[%d]=(%lf,%lf,%lf),%lf,",ii+1,model.hVleft,model.dVleft[ii],model.dVright[ii],model.dS1[ii+1]);
+        mle.model.comp.dS2[i + np] +=  dhVleft * mle.model.dVleft[i] / mle.model.hVleft * mle.model.indType
+        #//printf("dS2[%d]=%lf,",ii+1,model.dS2[ii+1]);
+        mle.model.comp.dS3[i] +=  mle.model.dA[i] / mle.model.A * mle.model.indType
+    end
+    #//printf("\n");
+end
 
-#         res[0] = (alpha_fixed ? S0/alpha-S1 : 0);
-#         //
-#         for(i=0;i<model.nb_paramsFamily-1;i++) {
-#             res[i+1] = -dS1[i]*param[0] + dS2[i];
-#         }
-#         for(ii=0;ii<model.nb_params_maintenance;ii++,i++) {
-#             res[i+1] = -dS1[i]*param[0] + dS2[i]+dS3[ii];
-#         }
-#         for(ii=0;ii<model.nb_params_cov;ii++,i++) {
-#             res[i+1] = -dS1[i]*param[0] + dS4[ii] ;
-#         }
+function gradient_update_dS_maintenance(mle::MLE,  i::Int, ii::Int) 
+    mle.comp.dS1[i] += mle.model.comp.dS1[i] * (mle.model.nb_params_cov > 0 ? exp(mle.model.sum_cov) : 1.0)
+    mle.comp.dS2[i] += mle.model.comp.dS2[i]
+    mle.comp.dS3[ii] += mle.model.comp.dS3[ii]
+end
 
-#         param[0]=alpha;//LD:changed for bayesian
-#         return res;
-#     }
+function gradient_update_dS_family(mle::MLE, i::Int)
+    mle.comp.dS1[i] += mle.model.comp.dS1[i] * (mle.model.nb_params_cov > 0 ? exp(mle.model.sum_cov) : 1.0)
+    mle.comp.dS2[i] += mle.model.comp.dS2[i]
+end
+
+function gradient_update_dS_covariate(mle::MLE, i::Int, ii::Int)
+    #//nb_params_cov > 0 necessarily
+    cov=covariate(mle.model, ii)
+    mle.comp.dS1[i] += mle.model.comp.S1 * cov * exp(mle.model.sum_cov)
+    #//dS2[i]=0
+    mle.comp.dS4[ii] += mle.model.comp.S0 * cov
+end
+
+
 
 #     void hessian_for_current_system() {
 #         int j,i,ii,k,kk;
@@ -404,15 +466,15 @@ end
 #         int i,ii;
 #     	contrast_update_for_current_system(true,false);
 
-#         double *cumhVright_param_derivative=model.family.cumulative_hazardRate_param_derivative(model.Vright,true);
-#         double *cumhVleft_param_derivative=model.family.cumulative_hazardRate_param_derivative(model.Vleft,false);
-#         double *hVleft_param_derivative=model.family.hazardRate_param_derivative(model.Vleft,false);
+#         double *cumhVright_param_derivative=model.family.cumulative_hazard_rate_param_derivative(model.Vright,true);
+#         double *cumhVleft_param_derivative=model.family.cumulative_hazard_rate_param_derivative(model.Vleft,false);
+#         double *hVleft_param_derivative=model.family.hazard_rate_param_derivative(model.Vleft,false);
 #         for(i=0;i<model.nb_paramsFamily-1;i++){
 #             if(model.k >= left_censor) model.dS1[i] +=  cumhVleft_param_derivative[i]-cumhVright_param_derivative[i] ;
 #             model.dS2[i] += hVleft_param_derivative[i]/model.hVleft*model.indType ;
 #         }
-#     	double hVright=model.family.hazardRate(model.Vright);
-#     	double dhVleft=model.family.hazardRate_derivative(model.Vleft);
+#     	double hVright=model.family.hazard_rate(model.Vright);
+#     	double dhVleft=model.family.hazard_rate_derivative(model.Vleft);
 #     	  //printf("k:%d,hVright:%lf,dhVleft:%lf,indType:%lf\n",model.k,hVright,dhVleft,model.indType);
 #     	for(ii=0;ii<model.nb_params_maintenance;ii++,i++) {
 #     		if(model.k >= left_censor) model.dS1[i] += model.hVleft * model.dVleft[ii] - hVright * model.dVright[ii];
@@ -429,12 +491,12 @@ end
 #         int j;
 #         contrast_update_for_current_system(true,true);
 
-#         double *cumhVright_param_derivative=model.family.cumulative_hazardRate_param_derivative(model.Vright,true);
-#         double *cumhVleft_param_derivative=model.family.cumulative_hazardRate_param_derivative(model.Vleft,false);
-#         double *hVleft_param_derivative=model.family.hazardRate_param_derivative(model.Vleft,false);
-#         double *cumhVright_param_2derivative=model.family.cumulative_hazardRate_param_2derivative(model.Vright,true);
-#         double *cumhVleft_param_2derivative=model.family.cumulative_hazardRate_param_2derivative(model.Vleft,false);
-#         double *hVleft_param_2derivative=model.family.hazardRate_param_2derivative(model.Vleft);
+#         double *cumhVright_param_derivative=model.family.cumulative_hazard_rate_param_derivative(model.Vright,true);
+#         double *cumhVleft_param_derivative=model.family.cumulative_hazard_rate_param_derivative(model.Vleft,false);
+#         double *hVleft_param_derivative=model.family.hazard_rate_param_derivative(model.Vleft,false);
+#         double *cumhVright_param_2derivative=model.family.cumulative_hazard_rate_param_2derivative(model.Vright,true);
+#         double *cumhVleft_param_2derivative=model.family.cumulative_hazard_rate_param_2derivative(model.Vleft,false);
+#         double *hVleft_param_2derivative=model.family.hazard_rate_param_2derivative(model.Vleft);
 #         for(i=0;i<model.nb_paramsFamily-1;i++){
 #             if(model.k >= left_censor) model.dS1[i] +=  cumhVleft_param_derivative[i]-cumhVright_param_derivative[i] ;
 #             model.dS2[i] += hVleft_param_derivative[i]/model.hVleft*model.indType ;
@@ -443,12 +505,12 @@ end
 #                 model.d2S2[i*(i+1)/2+j] += (hVleft_param_2derivative[i*(i+1)/2+j]/model.hVleft -hVleft_param_derivative[i]*hVleft_param_derivative[j]/pow(model.hVleft,2))*model.indType;
 #             }
 #         }
-#         double hVright=model.family.hazardRate(model.Vright);
-#         double dhVleft=model.family.hazardRate_derivative(model.Vleft);
-#         double dhVright=model.family.hazardRate_derivative(model.Vright);
-#         double *hVright_param_derivative=model.family.hazardRate_param_derivative(model.Vright,true);
-#         double *dhVleft_param_derivative=model.family.hazardRate_derivative_param_derivative(model.Vleft);
-#         double d2hVleft=model.family.hazardRate_2derivative(model.Vleft);
+#         double hVright=model.family.hazard_rate(model.Vright);
+#         double dhVleft=model.family.hazard_rate_derivative(model.Vleft);
+#         double dhVright=model.family.hazard_rate_derivative(model.Vright);
+#         double *hVright_param_derivative=model.family.hazard_rate_param_derivative(model.Vright,true);
+#         double *dhVleft_param_derivative=model.family.hazard_rate_derivative_param_derivative(model.Vleft);
+#         double d2hVleft=model.family.hazard_rate_2derivative(model.Vleft);
 #         //printf("k:%d,hVright:%lf,dhVleft:%lf,indType:%lf\n",model.k,hVright,dhVleft,model.indType);
 #         for(i=0;i<model.nb_params_maintenance;i++) {
 #             if(model.k >= left_censor) model.dS1[i+model.nb_paramsFamily-1] += model.hVleft * model.dVleft[i] - hVright * model.dVright[i];
@@ -469,23 +531,3 @@ end
 #             }
 #         }
 #     }
-
-#     void gradient_dS_maintenance_update(int i,int ii) {
-#         dS1[i] += model.dS1[i] * (model.nb_params_cov > 0 ? exp(model.sum_cov) : 1.0); dS2[i] += model.dS2[i]; dS3[ii] += model.dS3[ii];
-#     }
-
-#     void gradient_dS_family_update(int i) {
-#         dS1[i] += model.dS1[i] * (model.nb_params_cov > 0 ? exp(model.sum_cov) : 1.0); dS2[i] += model.dS2[i];
-#     }
-
-#     void gradient_dS_covariate_update(int i,int ii) {
-#         //nb_params_cov > 0 necessarily
-#         double cov=model.get_covariate(ii);
-#         dS1[i] += model.S1 * cov * exp(model.sum_cov);
-#         //dS2[i]=0
-#         dS4[ii] += model.S0 * cov;
-#     }
-
-# };
-
-# #endif //RCPP_MLE_VAM_H
