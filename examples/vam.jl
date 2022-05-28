@@ -16,7 +16,7 @@ m = mle(
 	@vam(Temps & Type ~ (ARA1(.5) | Weibull(0.01,2.5)) & (ARAInf(.7)+ARAInf(.3)+ ABAO()|Periodic(12,[0.6,0.4]) * AtIntensity(1.2))),
 	df2
 )
-
+m.model.k
 m.model.data
 
 m.model.time
@@ -30,6 +30,7 @@ m = mle(
 	@vam(time & type ~ (ARAInf(0.4) | Weibull(0.001,2.5))), 
 	data
 )
+m.model.k
 θ = [0.3,1.8,0.6]
 # lnL = -2.30449245951301
 # dlnL = [-5.52619699756427,-1.45367181592636,0]
@@ -40,6 +41,6 @@ c = -1.62415430907299
 # @test logLik(mle,theta,TRUE,FALSE,FALSE),equals(lnL,tolerance=0.00000000000001))
 # expect_that(logLik(mle,theta,FALSE,TRUE,FALSE),equals(dlnL,tolerance=0.00000000000001))
 # expect_that(logLik(mle,theta,FALSE,FALSE,TRUE),equals(d2lnL,tolerance=0.00000000000001))
-	
 VAM.contrast(m,θ)
+@run VAM.contrast(m,θ)
 params(m.model)

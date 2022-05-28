@@ -50,7 +50,7 @@ mutable struct Model <: AbstractModel
 end
 
 function init!(m::Model)
-		m.k = 0  # current system
+		m.k = 1  # current system
 		m.nb_system = 1 #number of system
 		if isdefined(m, :models) && length(m.models) > 0
 			m.nbPM = length(m.models) - 1
@@ -149,12 +149,12 @@ end
 function data!(m::Model,data::Union{DataFrame, DataFrame})
 	m.data=DataFrame[]
 	if size(data,2) == 2
-		push!(m.data, data)
+		push!(m.data, vcat(DataFrame(time=0, type=1),data))
 		m.nb_system = 1
 	elseif size(data,2) == 3
 		m.nb_system=maximum(data[!,1])
 		for syst in sort(unique(data[!,1]))
-			push!(m.data, data[data[!,1].==syst,2:3]) 
+			push!(m.data, vcat(DataFrame(time=0, type=1),data[data[!,1].==syst,2:3]))
 		end
 	end
 	select_data(m,1) #;//default when only one system no need to

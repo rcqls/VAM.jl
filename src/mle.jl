@@ -1,7 +1,7 @@
 mutable struct MLE
     model::Model
     left_censors::Vector{Int} #CAREFUL: this is a vector of indices!
-    left_censor::Int #leftCensor for current system
+    left_censor::Int #left_censor for current system
 
     comp::Compute
     MLE() = new()
@@ -23,9 +23,9 @@ function left_censors!(m::MLE, left_censors::Vector{Int})
       m.left_censors = left_censors
 end
 
-function select_leftCensor(mle::MLE, i::Int)
+function select_left_censor(mle::MLE, i::Int)
     if length(mle.left_censors) > 0 
-        mle.leftCensor=left_censors[i]
+        mle.left_censor=left_censors[i]
     end
 end
 
@@ -41,7 +41,7 @@ function contrast(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=true)::Flo
     # //printf("System %d\n",1);
     select_data(mle.model, 1)
     # if(model.nb_params_cov > 0) model.select_current_system(0,true);
-    select_leftCensor(mle, 1)
+    select_left_censor(mle, 1)
     contrast_current(mle)
     # //only if multi-system
     if mle.model.nb_system > 1
@@ -51,7 +51,7 @@ function contrast(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=true)::Flo
             if model.nb_params_cov > 0 
                 select_current_system(mle.model, i, true)
             end
-            select_leftCensor(mle, i)
+            select_left_censor(mle, i)
             contrast_for_current_system()
         end
     end
@@ -78,17 +78,17 @@ end
 
 function contrast_current(mle::MLE)
     init_mle(mle)
-    n = length(mle.model.time) - 1
-    while (mle.model.k < n)
+    n = length(mle.model.time)
+    while mle.model.k < n
         # //printf("  Time=%f, Type=%d\n",model.time[model.k+1],model.type[model.k+1]);
         contrast_update_current(mle)
         #// previous model for the next step
-        type = model.type[model.k + 1]
+        type = mle.model.type[mle.model.k + 1]
         if type < 0 
-            type=0
+            type = 0
         end
         #//model.indMode = (type < 0 ? 0 : type);
-        update!(mle.model.models[1 + type], model)
+        update!(mle.model.models[1 + type], mle.model)
     end
     contrast_update_S(mle)
 end
@@ -97,11 +97,11 @@ function contrast_update_current(mle::MLE; deriv::Bool=false)
     update_Vleft!(mle.model,with_gradient=deriv,with_hessian=deriv)
     mle.model.hVleft = hazard_rate(mle.model.family, mle.model.Vleft)
     mle.model.indType = (mle.model.type[mle.model.k + 1] < 0 ? 1.0 : 0.0)
-    if mle.model.k >= mle.leftCensor 
+    if mle.model.k >= mle.left_censor 
         mle.model.comp.S1 += cumulative_hazard_rate(mle.model.family, mle.model.Vleft) - cumulative_hazard_rate(mle.model.family, mle.model.Vright)
     end
-    mle.model.comp.S2 += log(mle.model.hVleft) * model.indType
-    mle.model.comp.S3 += log(mle.model.A) * model.indType
+    mle.model.comp.S2 += log(mle.model.hVleft) * mle.model.indType
+    mle.model.comp.S3 += log(mle.model.A) * mle.model.indType
 end
 
 function contrast_update_S(mle::MLE)
@@ -156,13 +156,13 @@ end
 #         model.set_params(param);
 #         model.select_data(0);
 #         if(model.nb_params_cov > 0) model.select_current_system(0,true);
-#         select_leftCensor(0);
+#         select_left_censor(0);
 #         gradient_for_current_system();
 #         //only if multi-system
 #         for(i=1;i<model.nb_system;i++) {
 #             model.select_data(i);
 #             if(model.nb_params_cov > 0) model.select_current_system(i,true);
-#             select_leftCensor(i);
+#             select_left_censor(i);
 #             gradient_for_current_system();
 #         }
 #         //compute gradient
@@ -248,14 +248,14 @@ end
 #         model.set_params(param);
 #         model.select_data(0);
 #         if(model.nb_params_cov > 0) model.select_current_system(0,true);
-#         select_leftCensor(0);
+#         select_left_censor(0);
 #         hessian_for_current_system();
 
 #         //only if multi-system
 #         for(int i=1;i<model.nb_system;i++) {
 #             model.select_data(i);
 #             if(model.nb_params_cov > 0) model.select_current_system(i,true);
-#             select_leftCensor(i);
+#             select_left_censor(i);
 #             hessian_for_current_system();
 #         }
 
@@ -382,7 +382,7 @@ function init_mle(mle::MLE; deriv::Bool=false)
     mle.model.Vright = 0
     mle.model.Vright = 0
     mle.model.A = 1
-    mle.model.k = 0
+    mle.model.k = 1
     mle.model.id_mod = 0 #id of current model
     init!(mle.model.comp, deriv=deriv)
 
@@ -408,14 +408,14 @@ end
 #         double *cumhVleft_param_derivative=model.family.cumulative_hazardRate_param_derivative(model.Vleft,false);
 #         double *hVleft_param_derivative=model.family.hazardRate_param_derivative(model.Vleft,false);
 #         for(i=0;i<model.nb_paramsFamily-1;i++){
-#             if(model.k >= leftCensor) model.dS1[i] +=  cumhVleft_param_derivative[i]-cumhVright_param_derivative[i] ;
+#             if(model.k >= left_censor) model.dS1[i] +=  cumhVleft_param_derivative[i]-cumhVright_param_derivative[i] ;
 #             model.dS2[i] += hVleft_param_derivative[i]/model.hVleft*model.indType ;
 #         }
 #     	double hVright=model.family.hazardRate(model.Vright);
 #     	double dhVleft=model.family.hazardRate_derivative(model.Vleft);
 #     	  //printf("k:%d,hVright:%lf,dhVleft:%lf,indType:%lf\n",model.k,hVright,dhVleft,model.indType);
 #     	for(ii=0;ii<model.nb_params_maintenance;ii++,i++) {
-#     		if(model.k >= leftCensor) model.dS1[i] += model.hVleft * model.dVleft[ii] - hVright * model.dVright[ii];
+#     		if(model.k >= left_censor) model.dS1[i] += model.hVleft * model.dVleft[ii] - hVright * model.dVright[ii];
 #     		//printf("dS1[%d]=(%lf,%lf,%lf),%lf,",ii+1,model.hVleft,model.dVleft[ii],model.dVright[ii],model.dS1[ii+1]);
 #     		model.dS2[i] +=  dhVleft * model.dVleft[ii]/model.hVleft * model.indType;
 #     		//printf("dS2[%d]=%lf,",ii+1,model.dS2[ii+1]);
@@ -436,10 +436,10 @@ end
 #         double *cumhVleft_param_2derivative=model.family.cumulative_hazardRate_param_2derivative(model.Vleft,false);
 #         double *hVleft_param_2derivative=model.family.hazardRate_param_2derivative(model.Vleft);
 #         for(i=0;i<model.nb_paramsFamily-1;i++){
-#             if(model.k >= leftCensor) model.dS1[i] +=  cumhVleft_param_derivative[i]-cumhVright_param_derivative[i] ;
+#             if(model.k >= left_censor) model.dS1[i] +=  cumhVleft_param_derivative[i]-cumhVright_param_derivative[i] ;
 #             model.dS2[i] += hVleft_param_derivative[i]/model.hVleft*model.indType ;
 #             for(j=0;j<=i;j++) {
-#                 if(model.k >= leftCensor) model.d2S1[i*(i+1)/2+j] += cumhVleft_param_2derivative[i*(i+1)/2+j]-cumhVright_param_2derivative[i*(i+1)/2+j];
+#                 if(model.k >= left_censor) model.d2S1[i*(i+1)/2+j] += cumhVleft_param_2derivative[i*(i+1)/2+j]-cumhVright_param_2derivative[i*(i+1)/2+j];
 #                 model.d2S2[i*(i+1)/2+j] += (hVleft_param_2derivative[i*(i+1)/2+j]/model.hVleft -hVleft_param_derivative[i]*hVleft_param_derivative[j]/pow(model.hVleft,2))*model.indType;
 #             }
 #         }
@@ -451,19 +451,19 @@ end
 #         double d2hVleft=model.family.hazardRate_2derivative(model.Vleft);
 #         //printf("k:%d,hVright:%lf,dhVleft:%lf,indType:%lf\n",model.k,hVright,dhVleft,model.indType);
 #         for(i=0;i<model.nb_params_maintenance;i++) {
-#             if(model.k >= leftCensor) model.dS1[i+model.nb_paramsFamily-1] += model.hVleft * model.dVleft[i] - hVright * model.dVright[i];
+#             if(model.k >= left_censor) model.dS1[i+model.nb_paramsFamily-1] += model.hVleft * model.dVleft[i] - hVright * model.dVright[i];
 #             //printf("dS1[%d]=(%lf,%lf,%lf),%lf,",i+1,model.hVleft,model.dVleft[i],model.dVright[i],model.dS1[i+1]);
 #             model.dS2[i+model.nb_paramsFamily-1] +=  dhVleft * model.dVleft[i]/model.hVleft * model.indType;
 #             //printf("dS2[%d]=%lf,",i+1,model.dS2[i+1]);
 #             //column 0 and i+1 corresponds to the line indice of (inferior diagonal part of) the hessian matrice
 #             model.dS3[i] +=  model.dA[i]/model.A * model.indType;
 #             for(j=0;j<model.nb_paramsFamily-1;j++){
-#                 if(model.k >= leftCensor) model.d2S1[(i+model.nb_paramsFamily-1)*(i+model.nb_paramsFamily)/2+j] += hVleft_param_derivative[j] * model.dVleft[i] - hVright_param_derivative[j] * model.dVright[i];
+#                 if(model.k >= left_censor) model.d2S1[(i+model.nb_paramsFamily-1)*(i+model.nb_paramsFamily)/2+j] += hVleft_param_derivative[j] * model.dVleft[i] - hVright_param_derivative[j] * model.dVright[i];
 #                 model.d2S2[(i+model.nb_paramsFamily-1)*(i+model.nb_paramsFamily)/2+j] +=  dhVleft_param_derivative[j] * model.dVleft[i]/model.hVleft * model.indType - hVleft_param_derivative[j]*dhVleft * model.dVleft[i]/pow(model.hVleft,2) * model.indType;
 #             }
 #             for(j=0;j<=i;j++){
 #                 //i+1 and j+1(<=i+1) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-#                 if(model.k >= leftCensor) model.d2S1[(i+model.nb_paramsFamily-1)*(i+model.nb_paramsFamily)/2+j+model.nb_paramsFamily-1] += dhVleft*model.dVleft[i]*model.dVleft[j] + model.hVleft * model.d2Vleft[i*(i+1)/2+j] - dhVright*model.dVright[i]*model.dVright[j] - hVright * model.d2Vright[i*(i+1)/2+j];
+#                 if(model.k >= left_censor) model.d2S1[(i+model.nb_paramsFamily-1)*(i+model.nb_paramsFamily)/2+j+model.nb_paramsFamily-1] += dhVleft*model.dVleft[i]*model.dVleft[j] + model.hVleft * model.d2Vleft[i*(i+1)/2+j] - dhVright*model.dVright[i]*model.dVright[j] - hVright * model.d2Vright[i*(i+1)/2+j];
 #                 model.d2S2[(i+model.nb_paramsFamily-1)*(i+model.nb_paramsFamily)/2+j+model.nb_paramsFamily-1] += ( model.dVleft[i]*model.dVleft[j]*(d2hVleft/model.hVleft-pow(dhVleft/model.hVleft,2)) + dhVleft * model.d2Vleft[i*(i+1)/2+j]/model.hVleft )* model.indType;
 #                 model.d2S3[i*(i+1)/2+j] += (model.d2A[i*(i+1)/2+j]/model.A -model.dA[i]*model.dA[j]/pow(model.A,2))* model.indType;
 #             }
