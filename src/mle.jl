@@ -30,6 +30,34 @@ function select_left_censor(mle::MLE, i::Int)
     end
 end
 
+# Rcpp -> init_mle_vam_for_current_system
+function init_mle(mle::MLE; deriv::Bool=false)
+     
+    for mm in mle.model.models
+        init!(mm)
+    end
+
+    mle.model.Vright = 0
+    mle.model.Vright = 0
+    mle.model.A = 1
+    mle.model.k = 1
+    mle.model.id_mod = 0 #id of current model
+    init!(mle.model.comp, deriv=deriv)
+
+    for type in mle.model.type
+        if type < 0 
+            mle.model.comp.S0 += 1
+        end
+    end
+    if deriv
+        mle.model.dVright = zeros(mle.model.comp.nbd)
+        mle.model.dA = zeros(mle.model.comp.nbd)
+        nb2m = mle.model.nb_params_maintenance * (mle.model.nb_params_maintenance + 1) ÷ 2
+        mle.model.d2Vright = zeros(nb2m)
+        mle.model.d2A = zeros(nb2m)
+    end
+end
+
 function contrast(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Float64
     res = 0
     alpha = param[1] #;//save current value of alpha
@@ -170,8 +198,6 @@ function gradient(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)
     return res
 end
 
-
-
 function gradient_current(mle::MLE)
     init_mle(mle, deriv = true)
     n = length(mle.model.time)
@@ -246,174 +272,217 @@ function gradient_update_dS_covariate(mle::MLE, i::Int, ii::Int)
     mle.comp.dS4[ii] += mle.model.comp.S0 * cov
 end
 
+function hessian(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)
+    res = zeros(mle.model.nb_params_family + mle.model.nb_params_maintenance + model.nb_params_cov, mle.model.nb_params_family + mle.model.nb_params_maintenance + mle.model.nb_params_cov)
+    alpha=param[1] #save current value of alpha
 
+    param[1]=1
+    init!(mle.comp, deriv = true)
+    params!(mle.model, param)
+    select_data(mle.model, 1)
+    # if(model.nb_params_cov > 0) model.select_current_system(0,true);
+    select_left_censor(mle, 1)
+    hessian_current(mle)
 
-#     void hessian_for_current_system() {
-#         int j,i,ii,k,kk;
-#         init_mle_vam_for_current_system(true,true);
-#         int n=(model.time).size() - 1;
-#         while(model.k < n) {
-#             hessian_update_for_current_system();
-#             int type=model.type[model.k + 1 ];
-#             if(type < 0) type=0;
-#             //model.indMode = (type < 0 ? 0 : type);
-#             model.models.at(type).update(true,true);
+    # //only if multi-system
+    if mle.model.nb_system > 1
+        for i in 2:mle.model.nb_system 
+            select_data(mle.model, i)
+            if model.nb_params_cov > 0 
+                select_current_system(mle.model, i, true)
+            end
+            select_left_censor(mle, i)
+            hessian_current(mle)
+        end
+    end
+
+    # //compute hessian
+    if !alpha_fixed
+        res[1,1] = 0
+        for i in 1:(mle.model.nb_params_family - 1)
+            res[1, i + 1] = 0
+            res[i + 1, 1] = 0
+            res[i + 1, i + 1] = mle.comp.dS1[i]^2 / mle.comp.S1^2 * mle.comp.S0 - mle.comp.d2S1[i * (i + 1) ÷ 2 + i]/mle.comp.S1 * mle.comp.S0 + mle.comp.d2S2[i * (i + 1) ÷2 + i]
+            for j in 1:i # ?? or for j in 0:(i - 1)
+                #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
+                res[i + 1, j + 1] = mle.comp.dS1[i] * mle.comp.dS1[j] / mle.comp.S1^2 * mle.comp.S0 - mle.comp.d2S1[i * (i + 1) ÷ 2 + j] / mle.comp.S1 * S0 + d2S2[i * (i + 1) ÷ 2 + j]
+                res[j + 1, i + 1] = res[i + 1,j + 1]
+            end
+        end
+        for i in mle.model.nb_params_family:(mle.model.nb_params_maintenance + mle.model.nb_params_family - 1)
+            res[1, i + 1] = 0
+            res[i + 1, 1] = 0
+            res[i + 1, i + 1] = dS1[i]^2 / S1^2 * S0 - d2S1[i * (i + 1) ÷ 2 + i] / S1 * S0 + d2S2[i * (i + 1) ÷ 2 + i] + d2S3[(i-(mle.model.nb_params_family - 1)) * (i -(mle.model.nb_params_family - 1) + 1) ÷ 2 + i - (model.nb_params_family-1)]
+            for j in 1:(mle.model.nb_params_family-1)
+                #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
+                res[i + 1, j + 1] = dS1[i] * dS1[j] / S1^2 * S0 - d2S1[i * (i + 1) ÷ 2 + j] / S1 * S0 + d2S2[i * (i + 1) ÷ 2 + j]
+                res[j + 1, i + 1] = res[i + 1, j + 1]
+            end
+            for j in mle.model.nb_params_family:(i - 1)
+                #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
+                res[i + 1, j + 1] = dS1[i] * dS1[j] / S1^2 * S0 - d2S1[i * (i + 1) ÷ 2 + j] / S1 * S0 + d2S2[i * (i + 1) ÷ 2 + j] + d2S3[(i - (mle.model.nb_params_family-1)) * (i - (mle.model.nb_params_family - 1) + 1) ÷ 2 + j - (mle.model.nb_params_family - 1)]
+                res[j + 1, i + 1] = res[i + 1, j + 1]
+            end
+        end
+        for i in (mle.model.nb_params_maintenance + mle.model.nb_params_family):(mle.model.nb_params_maintenance + mle.model.nb_params_family + mle.model.nb_params_cov - 1)
+            res[1,i + 1] = 0
+            res[i + 1, 1] = 0
+            res[i + 1,i + 1] = dS1[i] ^2 / S1^2 * S0 - d2S1[i * (i + 1) ÷ 2 + i] / S1 * S0
+            for j in 1:i
+                res[i + 1,j + 1] = dS1[i] * dS1[j] / S1^2 * S0 - d2S1[i * (i + 1) ÷ 2 + j] / S1 * S0
+                res[j + 1,i + 1] = res[i + 1,j + 1]
+            end
+        end
+        param[1] = S0/S1
+        params!(mle.model, param) #;//also memorize the current value for alpha which is not 1 in fact
+    else
+
+        res[1, 1] = -S0 / alpha^2
+        for i in 1:(mle.model.nb_params_family-1)
+            res[1,i + 1] = -dS1[i]
+            res[i + 1,1] = -dS1[i]
+            res[i + 1,i + 1] = d2S2[i * (i + 1) ÷ 2 + i] - alpha * d2S1[i *(i + 1) ÷ 2 + i]
+            for j in 1:i
+                #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
+                res[i + 1,j + 1] = d2S2[i * (i + 1) ÷ 2 + j] - alpha * d2S1[i * (i + 1) ÷2 + j]
+                res[j + 1,i + 1] = res[i + 1,j + 1]
+            end
+        end
+        for i in mle.model.nb_params_family:(mle.model.nb_params_maintenance + model.nb_params_family - 1)
+            res[1, i + 1] = -dS1[i]
+            res[i + 1, 1] = -dS1[i]
+            res[i + 1, i + 1] = d2S2[i * (i + 1) ÷ 2 + i] - alpha * d2S1[i * (i + 1) ÷ 2 + i] + d2S3[(i-(mle.model.nb_params_family-1)) * (i - (mle.model.nb_params_family - 1) + 1) ÷ 2 + i - (mle.model.nb_params_family - 1)]
+            for j in 1:(mle.model.nb_params_family - 1)
+                #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
+                res[i + 1, j + 1] = d2S2[i * (i + 1) ÷ 2 + j] - alpha * d2S1[i * (i + 1) ÷ 2 + j]
+                res[j + 1, i + 1] = res[i + 1, j + 1]
+            end
+            for j in mle.model.nb_params_family:i
+                #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
+                res[i + 1, j + 1] = d2S2[i * (i + 1) ÷ 2 + j] - alpha * d2S1[i * (i + 1) ÷ 2 + j] + d2S3[(i - (mle.model.nb_params_family - 1)) * (i - (mle.model.nb_params_family - 1) + 1) ÷ 2 + j - (mle.model.nb_params_family - 1)]
+                res[j + 1, i + 1] = res[i + 1, j + 1]
+            end
+        end
+        for i in (model.nb_params_maintenance+mle.model.nb_params_family):(mle.model.nb_params_maintenance+mle.model.nb_params_family + mle.model.nb_params_cov - 1)
+            res[1, i + 1] = -dS1[i]
+            res[i + 1, 1] = -dS1[i]
+            res[i + 1, i + 1] = -alpha * d2S1[i * (i + 1) ÷ 2 + i]
+            for j in 1:i
+                res[i + 1, j + 1] = -alpha * d2S1[i * (i + 1) ÷ 2 + j]
+                res[j + 1, i + 1] = res[i + 1 , j + 1]
+            end
+        end
+        param[1]=alpha
+        params!(mle.model, param) #also memorize the current value for alpha which is not 1 in fact
+
+    end
+    param[1] = alpha # LD:changed for bayesian
+    return res
+end
+
+function hessian_current(mle::MLE)
+#     int j,i,ii,k,kk;
+#     init_mle_vam_for_current_system(true,true);
+#     int n=(model.time).size() - 1;
+#     while(model.k < n) {
+#         hessian_update_for_current_system();
+#         int type=model.type[model.k + 1 ];
+#         if(type < 0) type=0;
+#         //model.indMode = (type < 0 ? 0 : type);
+#         model.models.at(type).update(true,true);
+#     }
+#     contrast_S_update();
+#     for(i=0;i<model.nb_params_family-1;i++) {
+#         gradient_dS_family_update(i);
+#         for(j=0;j<=i;j++) {
+#             //i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
+#             k=i*(i+1)/2+j;
+#             d2S1[k] += model.d2S1[k] * (model.nb_params_cov > 0 ? exp(model.sum_cov) : 1.0);
+#             d2S2[k] += model.d2S2[k];
 #         }
-#         contrast_S_update();
-#         for(i=0;i<model.nb_paramsFamily-1;i++) {
-#             gradient_dS_family_update(i);
-#             for(j=0;j<=i;j++) {
+#     }
+#     for(ii=0;ii<model.nb_params_maintenance;ii++,i++) {
+#         gradient_dS_maintenance_update(i,ii);
+#         for(j=0;j<=ii;j++) {
 #                 //i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-#                 k=i*(i+1)/2+j;
-#                 d2S1[k] += model.d2S1[k] * (model.nb_params_cov > 0 ? exp(model.sum_cov) : 1.0);
-#                 d2S2[k] += model.d2S2[k];
-#             }
+#             k=i*(i+1)/2+j;
+#             d2S1[k] += model.d2S1[k] * (model.nb_params_cov > 0 ? exp(model.sum_cov) : 1.0);
+#             d2S2[k] += model.d2S2[k];
+#             //ii and j(<=ii) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
+#             kk=ii*(ii+1)/2+j;
+#             d2S3[kk] += model.d2S3[kk];
 #         }
-#         for(ii=0;ii<model.nb_params_maintenance;ii++,i++) {
-#             gradient_dS_maintenance_update(i,ii);
-#             for(j=0;j<=ii;j++) {
-#                  //i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-#                 k=i*(i+1)/2+j;
-#                 d2S1[k] += model.d2S1[k] * (model.nb_params_cov > 0 ? exp(model.sum_cov) : 1.0);
-#                 d2S2[k] += model.d2S2[k];
-#                 //ii and j(<=ii) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-#                 kk=ii*(ii+1)/2+j;
-#                 d2S3[kk] += model.d2S3[kk];
-#             }
-#             for(j=ii+1;j<=i;j++) {
-#                 //i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-#                 k=i*(i+1)/2+j;
-#                 d2S1[k] += model.d2S1[k] * (model.nb_params_cov > 0 ? exp(model.sum_cov) : 1.0);
-#                 d2S2[k] += model.d2S2[k];
-#             }
-#         }
-#         for(ii=0;ii<model.nb_params_cov;ii++,i++) {
-#             gradient_dS_covariate_update(i,ii);
-#             for(j=0;j<model.nb_paramsFamily-1 + model.nb_params_maintenance;j++) {
-#               k=i*(i+1)/2+j;
-#               d2S1[k] += model.get_covariate(ii)* exp(model.sum_cov)*model.dS1[j];
-#             }
-#             for(j=model.nb_paramsFamily-1 + model.nb_params_maintenance;j<=i;j++){
-#               k=i*(i+1)/2+j;
-#               d2S1[k] += model.get_covariate(ii) * model.get_covariate(j - model.nb_paramsFamily+1 - model.nb_params_maintenance) * exp(model.sum_cov)*model.S1;
-#             }
+#         for(j=ii+1;j<=i;j++) {
+#             //i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
+#             k=i*(i+1)/2+j;
+#             d2S1[k] += model.d2S1[k] * (model.nb_params_cov > 0 ? exp(model.sum_cov) : 1.0);
+#             d2S2[k] += model.d2S2[k];
 #         }
 #     }
-
-#     NumericMatrix hessian(NumericVector param, bool alpha_fixed=false) {
-#         int j;
-#         NumericMatrix res(model.nb_paramsFamily+model.nb_params_maintenance+model.nb_params_cov,model.nb_paramsFamily+model.nb_params_maintenance+model.nb_params_cov);
-#         double alpha=param[0];//save current value of alpha
-
-#         param[0]=1;
-#         init_mle_vam(true,true);
-#         model.set_params(param);
-#         model.select_data(0);
-#         if(model.nb_params_cov > 0) model.select_current_system(0,true);
-#         select_left_censor(0);
-#         hessian_for_current_system();
-
-#         //only if multi-system
-#         for(int i=1;i<model.nb_system;i++) {
-#             model.select_data(i);
-#             if(model.nb_params_cov > 0) model.select_current_system(i,true);
-#             select_left_censor(i);
-#             hessian_for_current_system();
+#     for(ii=0;ii<model.nb_params_cov;ii++,i++) {
+#         gradient_dS_covariate_update(i,ii);
+#         for(j=0;j<model.nb_params_family-1 + model.nb_params_maintenance;j++) {
+#             k=i*(i+1)/2+j;
+#             d2S1[k] += model.get_covariate(ii)* exp(model.sum_cov)*model.dS1[j];
 #         }
-
-#         //compute hessian
-#         if(!alpha_fixed) {
-#             res(0,0) = 0;
-#             for(int i=0;i<model.nb_paramsFamily-1;i++) {
-#                 res(0,i+1) = 0;
-#                 res(i+1,0) = 0;
-#                 res(i+1,i+1) = pow(dS1[i],2)/pow(S1,2) * S0-d2S1[i*(i+1)/2+i]/S1 * S0 + d2S2[i*(i+1)/2+i];
-#                 for(j=0;j<i;j++) {
-#                     //i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-#                     res(i+1,j+1) = dS1[i]*dS1[j]/pow(S1,2) * S0-d2S1[i*(i+1)/2+j]/S1 * S0 + d2S2[i*(i+1)/2+j];
-#                     res(j+1,i+1) = res(i+1,j+1);
-#                 }
-#             }
-#             for(int i=(model.nb_paramsFamily-1);i<(model.nb_params_maintenance+model.nb_paramsFamily-1);i++) {
-#                 res(0,i+1) = 0;
-#                 res(i+1,0) = 0;
-#                 res(i+1,i+1) = pow(dS1[i],2)/pow(S1,2) * S0-d2S1[i*(i+1)/2+i]/S1 * S0 + d2S2[i*(i+1)/2+i] + d2S3[(i-(model.nb_paramsFamily-1))*(i-(model.nb_paramsFamily-1)+1)/2+i-(model.nb_paramsFamily-1)];
-#                 for(j=0;j<(model.nb_paramsFamily-1);j++) {
-#                     //i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-#                     res(i+1,j+1) = dS1[i]*dS1[j]/pow(S1,2) * S0-d2S1[i*(i+1)/2+j]/S1 * S0 + d2S2[i*(i+1)/2+j];
-#                     res(j+1,i+1) = res(i+1,j+1);
-#                 }
-#                 for(j=(model.nb_paramsFamily-1);j<i;j++) {
-#                     //i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-#                     res(i+1,j+1) = dS1[i]*dS1[j]/pow(S1,2) * S0-d2S1[i*(i+1)/2+j]/S1 * S0 + d2S2[i*(i+1)/2+j]+ d2S3[(i-(model.nb_paramsFamily-1))*(i-(model.nb_paramsFamily-1)+1)/2+j-(model.nb_paramsFamily-1)];
-#                     res(j+1,i+1) = res(i+1,j+1);
-#                 }
-#             }
-#             for(int i=(model.nb_params_maintenance+model.nb_paramsFamily-1);i<(model.nb_params_maintenance+model.nb_paramsFamily+model.nb_params_cov-1);i++) {
-#                res(0,i+1) = 0;
-#                res(i+1,0) = 0;
-#                res(i+1,i+1) = pow(dS1[i],2)/pow(S1,2) * S0-d2S1[i*(i+1)/2+i]/S1 * S0;
-#                for(j=0;j<i;j++) {
-#                  res(i+1,j+1) = dS1[i]*dS1[j]/pow(S1,2) * S0-d2S1[i*(i+1)/2+j]/S1 * S0;
-#                  res(j+1,i+1) = res(i+1,j+1);               }
-#             }
-#             param[0]=S0/S1;
-#             model.set_params(param);//also memorize the current value for alpha which is not 1 in fact
-#         } else {
-
-#             res(0,0) = -S0/pow(alpha,2);
-#             for(int i=0;i<(model.nb_paramsFamily-1);i++) {
-#                 res(0,i+1) = -dS1[i];
-#                 res(i+1,0) = -dS1[i];
-#                 res(i+1,i+1) = d2S2[i*(i+1)/2+i]-alpha*d2S1[i*(i+1)/2+i];
-#                 for(j=0;j<i;j++) {
-#                     //i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-#                     res(i+1,j+1) = d2S2[i*(i+1)/2+j]-alpha*d2S1[i*(i+1)/2+j];
-#                     res(j+1,i+1) = res(i+1,j+1);
-#                 }
-#             }
-#             for(int i=(model.nb_paramsFamily-1);i<(model.nb_params_maintenance+model.nb_paramsFamily-1);i++) {
-#                 res(0,i+1) = -dS1[i];
-#                 res(i+1,0) = -dS1[i];
-#                 res(i+1,i+1) = d2S2[i*(i+1)/2+i]-alpha*d2S1[i*(i+1)/2+i]+d2S3[(i-(model.nb_paramsFamily-1))*(i- (model.nb_paramsFamily-1)+1)/2+i-(model.nb_paramsFamily-1)];
-#                 for(j=0;j<(model.nb_paramsFamily-1);j++) {
-#                     //i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-#                     res(i+1,j+1) = d2S2[i*(i+1)/2+j]-alpha*d2S1[i*(i+1)/2+j];
-#                     res(j+1,i+1) = res(i+1,j+1);
-#                 }
-#                 for(j=(model.nb_paramsFamily-1);j<i;j++) {
-#                     //i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-#                     res(i+1,j+1) = d2S2[i*(i+1)/2+j]-alpha*d2S1[i*(i+1)/2+j]+d2S3[(i-(model.nb_paramsFamily-1))*(i- (model.nb_paramsFamily-1)+1)/2+j-(model.nb_paramsFamily-1)];
-#                     res(j+1,i+1) = res(i+1,j+1);
-#                 }
-#             }
-#             for(int i=(model.nb_params_maintenance+model.nb_paramsFamily-1);i<(model.nb_params_maintenance+model.nb_paramsFamily+model.nb_params_cov-1);i++) {
-#                res(0,i+1) = -dS1[i];
-#                res(i+1,0) = -dS1[i];
-#                res(i+1,i+1) = -alpha*d2S1[i*(i+1)/2+i];
-#                for(j=0;j<i;j++) {
-#                  res(i+1,j+1) = -alpha*d2S1[i*(i+1)/2+j];
-#                  res(j+1,i+1) = res(i+1,j+1);
-#                }
-#             }
-#             param[0]=alpha;
-#             model.set_params(param);//also memorize the current value for alpha which is not 1 in fact
-
+#         for(j=model.nb_params_family-1 + model.nb_params_maintenance;j<=i;j++){
+#             k=i*(i+1)/2+j;
+#             d2S1[k] += model.get_covariate(ii) * model.get_covariate(j - model.nb_params_family+1 - model.nb_params_maintenance) * exp(model.sum_cov)*model.S1;
 #         }
-#         param[0]=alpha;//LD:changed for bayesian
-#         return res;
 #     }
+end
 
-#     NumericVector get_alpha_est(NumericVector param) {
-#         NumericVector res(1);
-#         contrast(param); //To compute S1 and S0
-#         res[0]=S0/S1;
-#         return res;
-#     }
+function hessian_update_current(mle::MLE) 
+#     int i;
+#     int j;
+#     contrast_update_for_current_system(true,true);
 
-#     VamModel* get_model() {
-#     	return model;
+#     double *cumhVright_param_derivative=model.family.cumulative_hazard_rate_param_derivative(model.Vright,true);
+#     double *cumhVleft_param_derivative=model.family.cumulative_hazard_rate_param_derivative(model.Vleft,false);
+#     double *hVleft_param_derivative=model.family.hazard_rate_param_derivative(model.Vleft,false);
+#     double *cumhVright_param_2derivative=model.family.cumulative_hazard_rate_param_2derivative(model.Vright,true);
+#     double *cumhVleft_param_2derivative=model.family.cumulative_hazard_rate_param_2derivative(model.Vleft,false);
+#     double *hVleft_param_2derivative=model.family.hazard_rate_param_2derivative(model.Vleft);
+#     for(i=0;i<model.nb_params_family-1;i++){
+#         if(model.k >= left_censor) model.dS1[i] +=  cumhVleft_param_derivative[i]-cumhVright_param_derivative[i] ;
+#         model.dS2[i] += hVleft_param_derivative[i]/model.hVleft*model.indType ;
+#         for(j=0;j<=i;j++) {
+#             if(model.k >= left_censor) model.d2S1[i*(i+1)/2+j] += cumhVleft_param_2derivative[i*(i+1)/2+j]-cumhVright_param_2derivative[i*(i+1)/2+j];
+#             model.d2S2[i*(i+1)/2+j] += (hVleft_param_2derivative[i*(i+1)/2+j]/model.hVleft -hVleft_param_derivative[i]*hVleft_param_derivative[j]/pow(model.hVleft,2))*model.indType;
+#         }
 #     }
+#     double hVright=model.family.hazard_rate(model.Vright);
+#     double dhVleft=model.family.hazard_rate_derivative(model.Vleft);
+#     double dhVright=model.family.hazard_rate_derivative(model.Vright);
+#     double *hVright_param_derivative=model.family.hazard_rate_param_derivative(model.Vright,true);
+#     double *dhVleft_param_derivative=model.family.hazard_rate_derivative_param_derivative(model.Vleft);
+#     double d2hVleft=model.family.hazard_rate_2derivative(model.Vleft);
+#     //printf("k:%d,hVright:%lf,dhVleft:%lf,indType:%lf\n",model.k,hVright,dhVleft,model.indType);
+#     for(i=0;i<model.nb_params_maintenance;i++) {
+#         if(model.k >= left_censor) model.dS1[i+model.nb_params_family-1] += model.hVleft * model.dVleft[i] - hVright * model.dVright[i];
+#         //printf("dS1[%d]=(%lf,%lf,%lf),%lf,",i+1,model.hVleft,model.dVleft[i],model.dVright[i],model.dS1[i+1]);
+#         model.dS2[i+model.nb_params_family-1] +=  dhVleft * model.dVleft[i]/model.hVleft * model.indType;
+#         //printf("dS2[%d]=%lf,",i+1,model.dS2[i+1]);
+#         //column 0 and i+1 corresponds to the line indice of (inferior diagonal part of) the hessian matrice
+#         model.dS3[i] +=  model.dA[i]/model.A * model.indType;
+#         for(j=0;j<model.nb_params_family-1;j++){
+#             if(model.k >= left_censor) model.d2S1[(i+model.nb_params_family-1)*(i+model.nb_params_family)/2+j] += hVleft_param_derivative[j] * model.dVleft[i] - hVright_param_derivative[j] * model.dVright[i];
+#             model.d2S2[(i+model.nb_params_family-1)*(i+model.nb_params_family)/2+j] +=  dhVleft_param_derivative[j] * model.dVleft[i]/model.hVleft * model.indType - hVleft_param_derivative[j]*dhVleft * model.dVleft[i]/pow(model.hVleft,2) * model.indType;
+#         }
+#         for(j=0;j<=i;j++){
+#             //i+1 and j+1(<=i+1) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
+#             if(model.k >= left_censor) model.d2S1[(i+model.nb_params_family-1)*(i+model.nb_params_family)/2+j+model.nb_params_family-1] += dhVleft*model.dVleft[i]*model.dVleft[j] + model.hVleft * model.d2Vleft[i*(i+1)/2+j] - dhVright*model.dVright[i]*model.dVright[j] - hVright * model.d2Vright[i*(i+1)/2+j];
+#             model.d2S2[(i+model.nb_params_family-1)*(i+model.nb_params_family)/2+j+model.nb_params_family-1] += ( model.dVleft[i]*model.dVleft[j]*(d2hVleft/model.hVleft-pow(dhVleft/model.hVleft,2)) + dhVleft * model.d2Vleft[i*(i+1)/2+j]/model.hVleft )* model.indType;
+#             model.d2S3[i*(i+1)/2+j] += (model.d2A[i*(i+1)/2+j]/model.A -model.dA[i]*model.dA[j]/pow(model.A,2))* model.indType;
+#         }
+#     }
+end
+
+function alpha_est(mle::MLE, param::Vector{Float64})
+    contrast(mle, param) #//To compute S1 and S0
+    return mle.comp.S0 / mle.comp.S1
+end
+
 
 
 #     //delegate from model cache!
@@ -429,105 +498,3 @@ end
 #         model.set_covariates(covariates_);
 #     }
 
-
-# function init_mle_vam(mle::MLE;deriv::Bool=false)
-#     init!(mle.comp,deriv)
-# end
-
-# Rcpp -> init_mle_vam_for_current_system
-function init_mle(mle::MLE; deriv::Bool=false)
-     
-    for mm in mle.model.models
-        init!(mm)
-    end
-
-    mle.model.Vright = 0
-    mle.model.Vright = 0
-    mle.model.A = 1
-    mle.model.k = 1
-    mle.model.id_mod = 0 #id of current model
-    init!(mle.model.comp, deriv=deriv)
-
-    for type in mle.model.type
-        if type < 0 
-            mle.model.comp.S0 += 1
-        end
-    end
-    if deriv
-        mle.model.dVright = zeros(mle.model.comp.nbd)
-        mle.model.dA = zeros(mle.model.comp.nbd)
-        nb2m = mle.model.nb_params_maintenance * (mle.model.nb_params_maintenance + 1) ÷ 2
-        mle.model.d2Vright = zeros(nb2m)
-        mle.model.d2A = zeros(nb2m)
-    end
-end
-
-#     void gradient_update_for_current_system() {
-#         int i,ii;
-#     	contrast_update_for_current_system(true,false);
-
-#         double *cumhVright_param_derivative=model.family.cumulative_hazard_rate_param_derivative(model.Vright,true);
-#         double *cumhVleft_param_derivative=model.family.cumulative_hazard_rate_param_derivative(model.Vleft,false);
-#         double *hVleft_param_derivative=model.family.hazard_rate_param_derivative(model.Vleft,false);
-#         for(i=0;i<model.nb_paramsFamily-1;i++){
-#             if(model.k >= left_censor) model.dS1[i] +=  cumhVleft_param_derivative[i]-cumhVright_param_derivative[i] ;
-#             model.dS2[i] += hVleft_param_derivative[i]/model.hVleft*model.indType ;
-#         }
-#     	double hVright=model.family.hazard_rate(model.Vright);
-#     	double dhVleft=model.family.hazard_rate_derivative(model.Vleft);
-#     	  //printf("k:%d,hVright:%lf,dhVleft:%lf,indType:%lf\n",model.k,hVright,dhVleft,model.indType);
-#     	for(ii=0;ii<model.nb_params_maintenance;ii++,i++) {
-#     		if(model.k >= left_censor) model.dS1[i] += model.hVleft * model.dVleft[ii] - hVright * model.dVright[ii];
-#     		//printf("dS1[%d]=(%lf,%lf,%lf),%lf,",ii+1,model.hVleft,model.dVleft[ii],model.dVright[ii],model.dS1[ii+1]);
-#     		model.dS2[i] +=  dhVleft * model.dVleft[ii]/model.hVleft * model.indType;
-#     		//printf("dS2[%d]=%lf,",ii+1,model.dS2[ii+1]);
-#             model.dS3[ii] +=  model.dA[ii]/model.A * model.indType;
-#     	}
-#     	//printf("\n");
-#     }
-
-#     void hessian_update_for_current_system() {
-#         int i;
-#         int j;
-#         contrast_update_for_current_system(true,true);
-
-#         double *cumhVright_param_derivative=model.family.cumulative_hazard_rate_param_derivative(model.Vright,true);
-#         double *cumhVleft_param_derivative=model.family.cumulative_hazard_rate_param_derivative(model.Vleft,false);
-#         double *hVleft_param_derivative=model.family.hazard_rate_param_derivative(model.Vleft,false);
-#         double *cumhVright_param_2derivative=model.family.cumulative_hazard_rate_param_2derivative(model.Vright,true);
-#         double *cumhVleft_param_2derivative=model.family.cumulative_hazard_rate_param_2derivative(model.Vleft,false);
-#         double *hVleft_param_2derivative=model.family.hazard_rate_param_2derivative(model.Vleft);
-#         for(i=0;i<model.nb_paramsFamily-1;i++){
-#             if(model.k >= left_censor) model.dS1[i] +=  cumhVleft_param_derivative[i]-cumhVright_param_derivative[i] ;
-#             model.dS2[i] += hVleft_param_derivative[i]/model.hVleft*model.indType ;
-#             for(j=0;j<=i;j++) {
-#                 if(model.k >= left_censor) model.d2S1[i*(i+1)/2+j] += cumhVleft_param_2derivative[i*(i+1)/2+j]-cumhVright_param_2derivative[i*(i+1)/2+j];
-#                 model.d2S2[i*(i+1)/2+j] += (hVleft_param_2derivative[i*(i+1)/2+j]/model.hVleft -hVleft_param_derivative[i]*hVleft_param_derivative[j]/pow(model.hVleft,2))*model.indType;
-#             }
-#         }
-#         double hVright=model.family.hazard_rate(model.Vright);
-#         double dhVleft=model.family.hazard_rate_derivative(model.Vleft);
-#         double dhVright=model.family.hazard_rate_derivative(model.Vright);
-#         double *hVright_param_derivative=model.family.hazard_rate_param_derivative(model.Vright,true);
-#         double *dhVleft_param_derivative=model.family.hazard_rate_derivative_param_derivative(model.Vleft);
-#         double d2hVleft=model.family.hazard_rate_2derivative(model.Vleft);
-#         //printf("k:%d,hVright:%lf,dhVleft:%lf,indType:%lf\n",model.k,hVright,dhVleft,model.indType);
-#         for(i=0;i<model.nb_params_maintenance;i++) {
-#             if(model.k >= left_censor) model.dS1[i+model.nb_paramsFamily-1] += model.hVleft * model.dVleft[i] - hVright * model.dVright[i];
-#             //printf("dS1[%d]=(%lf,%lf,%lf),%lf,",i+1,model.hVleft,model.dVleft[i],model.dVright[i],model.dS1[i+1]);
-#             model.dS2[i+model.nb_paramsFamily-1] +=  dhVleft * model.dVleft[i]/model.hVleft * model.indType;
-#             //printf("dS2[%d]=%lf,",i+1,model.dS2[i+1]);
-#             //column 0 and i+1 corresponds to the line indice of (inferior diagonal part of) the hessian matrice
-#             model.dS3[i] +=  model.dA[i]/model.A * model.indType;
-#             for(j=0;j<model.nb_paramsFamily-1;j++){
-#                 if(model.k >= left_censor) model.d2S1[(i+model.nb_paramsFamily-1)*(i+model.nb_paramsFamily)/2+j] += hVleft_param_derivative[j] * model.dVleft[i] - hVright_param_derivative[j] * model.dVright[i];
-#                 model.d2S2[(i+model.nb_paramsFamily-1)*(i+model.nb_paramsFamily)/2+j] +=  dhVleft_param_derivative[j] * model.dVleft[i]/model.hVleft * model.indType - hVleft_param_derivative[j]*dhVleft * model.dVleft[i]/pow(model.hVleft,2) * model.indType;
-#             }
-#             for(j=0;j<=i;j++){
-#                 //i+1 and j+1(<=i+1) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-#                 if(model.k >= left_censor) model.d2S1[(i+model.nb_paramsFamily-1)*(i+model.nb_paramsFamily)/2+j+model.nb_paramsFamily-1] += dhVleft*model.dVleft[i]*model.dVleft[j] + model.hVleft * model.d2Vleft[i*(i+1)/2+j] - dhVright*model.dVright[i]*model.dVright[j] - hVright * model.d2Vright[i*(i+1)/2+j];
-#                 model.d2S2[(i+model.nb_paramsFamily-1)*(i+model.nb_paramsFamily)/2+j+model.nb_paramsFamily-1] += ( model.dVleft[i]*model.dVleft[j]*(d2hVleft/model.hVleft-pow(dhVleft/model.hVleft,2)) + dhVleft * model.d2Vleft[i*(i+1)/2+j]/model.hVleft )* model.indType;
-#                 model.d2S3[i*(i+1)/2+j] += (model.d2A[i*(i+1)/2+j]/model.A -model.dA[i]*model.dA[j]/pow(model.A,2))* model.indType;
-#             }
-#         }
-#     }
