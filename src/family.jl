@@ -64,7 +64,7 @@ function hazard_rate_derivative_param_derivative(f::WeibullFamilyModel, x::Float
     f.comp.dhd[1] = x<=0 ? 0 : f.α * (2 * f.β - 1 + f.β * (f.β - 1) * log(x)) * x^(f.β - 2)
     return f.comp.dhd
 end
-function hazard_rate_2derivative(f::WeibullFamilyModel, x::Float64)::Vector{Float64}
+function hazard_rate_2derivative(f::WeibullFamilyModel, x::Float64)
     return x<=0 ? 0 : f.α * f.β * (f.β - 1) * (f.β - 2) * x^(f.β - 3)
 end
 function hazard_rate_param_2derivative(f::WeibullFamilyModel, x::Float64)::Vector{Float64}

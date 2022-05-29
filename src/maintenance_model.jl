@@ -172,7 +172,7 @@ function update!(m::ARA1, model::AbstractModel; gradient::Bool=false, hessian::B
         end
     end
     if nk > 1
-        for k in nk:-1:1
+        for k in (nk - 1):-1:1
             model.VR_prec[k + 1] = model.VR_prec[k]
         end
     end
@@ -191,56 +191,58 @@ function update!(m::ARAInf, model::AbstractModel; gradient::Bool=false, hessian:
     end
     if hessian
         nb2d = model.nb_params_maintenance * (model.nb_params_maintenance + 1) ÷ 2
-        iip = model.id_params * (model.id_params + 1) ÷ 2
-        for k in nk:-1:1
-            for i in 0:(model.nb_params_maintenance - 1)
-                for j in 0:i
-                    model.d2VR_prec[k * nb2d + i * (i + 1) ÷ 2+j]=(1 - m.ρ) * model.d2VR_prec[(k - 1) * nb2d + i * (i + 1) ÷ 2 + j]
+        iip = (model.id_params - 1) * model.id_params ÷ 2
+        if nk > 1
+            for k in nk:-1:1
+                for i in 0:(model.nb_params_maintenance - 1)
+                    for j in 0:i
+                        model.d2VR_prec[k * nb2d + i * (i + 1) ÷ 2+j]=(1 - m.ρ) * model.d2VR_prec[(k - 1) * nb2d + i * (i + 1) ÷ 2 + j]
+                    end
+                end
+                for j in 0:model.id_params
+                    model.d2VR_prec[k * nb2d + model.id_params * (model.id_params + 1) ÷ 2 + j] -= model.dVR_prec[(k - 1) * model.nb_params_maintenance + j]
+                end
+                for i in model.id_params:(model.nb_params_maintenance - 1)
+                    model.d2VR_prec[k * nb2d + i * (i + 1) ÷ 2 + model.id_params] -= model.dVR_prec[(k - 1) * model.nb_params_maintenance + i]
                 end
             end
-            for j in 0:model.id_params
-                model.d2VR_prec[k * nb2d + model.id_params * (model.id_params + 1) ÷ 2 + j] -= model.dVR_prec[(k - 1) * model.nb_params_maintenance + j]
-            end
-            for i in model.id_params:(model.nb_params_maintenance - 1)
-                model.d2VR_prec[k * nb2d + i * (i + 1) ÷ 2 + model.id_params] -= model.dVR_prec[(k - 1) * model.nb_params_maintenance + i]
-            end
         end
-        if nk > 0
-            for i in 0:model.nb_params_maintenance
-                ii = i * ( i + 1) ÷ 2
-                for j in 0:i
+        if nk > 1
+            for i in 1:model.nb_params_maintenance
+                ii = (i - 1) * i ÷ 2
+                for j in 1:i
                     model.d2VR_prec[ii + j] = (1-m.ρ) * model.d2A[ii + j] * (model.time[model.k] - model.time[model.k - 1])
                     model.d2Vright[ii + j] = (1 - m.ρ) * model.d2Vleft[ii + j]
                 end
             end
-            for j in 0:model.id_params
+            for j in 1:model.id_params
                 model.d2VR_prec[iip + j] -= model.dA[j] * (model.time[model.k] - model.time[model.k - 1])
                 model.d2Vright[iip + j] -= model.dVleft[j]
             end
-            for i in model.id_params:(model.nb_params_maintenance - 1)
-                ii = i * ( i + 1) ÷ 2
+            for i in (model.id_params + 1):model.nb_params_maintenance
+                ii = (i - 1) * i ÷ 2
                 model.d2VR_prec[ii + model.id_params] -= model.dA[i] * (model.time[model.k] - model.time[model.k - 1])
                 model.d2Vright[ii + model.id_params] -= model.dVleft[i]
             end
         else
-            for i in 0:(model.nb_params_maintenance - 1)
-                ii = i * ( i + 1) ÷ 2
-                for j in 0:i
+            for i in 1:model.nb_params_maintenance
+                ii = (i - 1) * i ÷ 2
+                for j in 1:i
                     model.d2Vright[ii + j] = (1 - m.ρ) * model.d2Vleft[ii + j]
                 end
             end
-            for j in 0:model.id_params
+            for j in 1:model.id_params
                 model.d2Vright[iip + j] -= model.dVleft[j]
             end
             for i in model.id_params:(model.nb_params_maintenance - 1)
-                model.d2Vright[i * (i + 1) ÷ 2 + model.id_params] -= model.dVleft[i]
+                model.d2Vright[(i - 1) * i ÷ 2 + model.id_params] -= model.dVleft[i]
             end
         end
     end
     if gradient || hessian
         if nk > 1
             for k in (nk - 1):-1:1 # for(k=nk-1;k>0;k--)
-                for i in 0:(model.nb_params_maintenance - 1)
+                for i in 1:model.nb_params_maintenance
                     model.dVR_prec[k * model.nb_params_maintenance + i] = (1 - m.ρ) * model.dVR_prec[(k - 1) * model.nb_params_maintenance + i]
                 end
                 model.dVR_prec[k * model.nb_params_maintenance + model.id_params] -= model.VR_prec[k - 1]
@@ -371,7 +373,7 @@ function update!(m::ABAO, model::AbstractModel;gradient::Bool=false,hessian::Boo
         end
     end
     if nk > 1
-        for k in nk:-1:1
+        for k in (nk - 1):-1:1
             model.VR_prec[k + 1] = model.VR_prec[k]
         end
     end
@@ -419,7 +421,7 @@ function update!(m::AGAP, model::AbstractModel;gradient::Bool=false,hessian::Boo
         end
     end
     if nk > 1
-        for k in nk:-1:1
+        for k in (n - 1):-1:1
             model.VR_prec[k + 1] = model.VR_prec[k]
         end
     end
