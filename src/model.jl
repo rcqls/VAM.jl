@@ -1,56 +1,57 @@
 mutable struct Model <: AbstractModel
-	
+	# Main info
     k::Int # current system
-    nb_system::Int #number of system
+	time::Vector{Float64}
+	type::Vector{Int}
+	current_system::Int #current system
+
+	# number
+	nb_system::Int #number of system
 	nbPM::Int
-    id_mod::Int # current maintenance model
-	id_params::Int # current index in maintenance model parameters
 	nb_params_maintenance::Int
     nb_params_family::Int
     nb_params_cov::Int
-	mu::Int
 
-	time::Vector{Float64}
-	type::Vector{Int}
+	# index
+	id_mod::Int # current maintenance model
+	id_params::Int # current index in maintenance model parameters
 
-	data::Vector{DataFrame}
-	models::Vector{AbstractMaintenanceModel}
+	mu::Int # max memory of the model
+
+	# Model specification
 	family::FamilyModel
+	models::Vector{AbstractMaintenanceModel}
 	maintenance_policy::AbstractMaintenancePolicy
+	data::Vector{DataFrame}
 
-	#Additional Covariates stuff
-	data_cov::DataFrame
-	params_cov::Vector{Float64}
-	sum_cov::Float64 #to save the computation
-
-    indType::Float64
-
+	# For computation
+	indType::Float64
     Vleft::Float64
     Vright::Float64
     hVleft::Float64
-
-
 	dVleft::Vector{Float64}
     dVright::Vector{Float64}
-    
 	d2Vleft::Vector{Float64}
     d2Vright::Vector{Float64}
-
 	A::Float64
 	dA::Vector{Float64}
 	d2A::Vector{Float64}
-
 	VR_prec::Vector{Float64}
 	dVR_prec::Vector{Float64}
     d2VR_prec::Vector{Float64}
-
 	comp::Compute
+
+	# Additional Covariates stuff
+	data_cov::DataFrame
+	params_cov::Vector{Float64}
+	sum_cov::Float64 #to save the computation
 
 	Model() = new()
 end
 
 function init!(m::Model)
-		m.k = 1  # current system
+		m.k = 1  # current position in data
+		m.current_system = 1 # current system
 		m.nb_system = 1 #number of system
 		if isdefined(m, :models) && length(m.models) > 0
 			m.nbPM = length(m.models) - 1
@@ -68,10 +69,10 @@ function init!(m::Model)
 
 		m.data=DataFrame[]
 
-		#Additional Covariates stuff
-		# data_cov::DataFrame
-		# params_cov::Vector{Float64}
-		# sum_cov::Float64 #to save the computation
+		# Additional Covariates stuff
+		m.data_cov = DataFrame()
+		m.params_cov = Float64[]
+		m.sum_cov = 0 #to save the computation
 
 		## internal
 		m.time = Float64[]
@@ -128,23 +129,34 @@ end
 virtual_age(m::Model, x::Float64)::Float64 = m.Vright + (x  - m.time[m.k]) * m.A
 virtual_age_inverse(m::Model, x::Float64) = (x - m.Vright) / m.A + m.time[m.k]
 
-function update_Vleft!(m::Model;with_gradient::Bool=false, with_hessian::Bool=false)
+function update_Vleft!(m::Model; gradient::Bool=false, hessian::Bool=false)
 	# /*if(model->k < 10) printf("Vleft:%lf\n", model->Vleft);*/
 	m.Vleft = virtual_age(m, m.time[m.k + 1])
 	# //printf("Vleft:%lf\n", model->Vleft);
-	if with_hessian 
-		for i in 0:(m.nb_paramsMaintenance - 1) 
-            m.dVleft[i] = m.dVright[i] + (m.time[m.k+1] - m.time[m.k]) * m.dA[i]
-            for j in 0:i
-                m.d2Vleft[i * (i + 1) / 2 + j]= m.d2Vright[i * (i + 1) / 2 + j] + (m.time[m.k+1]  - m.time[m.k]) * m.d2A[i * (i + 1) / 2 + j]
+	if hessian
+		if m.nb_params_maintenance > 0
+			for i in 1:m.nb_params_maintenance
+				m.dVleft[i] = m.dVright[i] + (m.time[m.k+1] - m.time[m.k]) * m.dA[i]
+				for j in 0:(i - 1)
+					ij = i * (i + 1) ÷ 2 + j
+					m.d2Vleft[ij]= m.d2Vright[ij] + (m.time[m.k+1]  - m.time[m.k]) * m.d2A[ij]
+				end
 			end
 		end
-	elseif with_gradient
-		for i in 0:(m.nb_paramsMaintenance - 1)
-            m.dVleft[i]= m.dVright[i] + (m.time[m.k+1]  - m.time[m.k]) * m.dA[i]
+	elseif gradient
+		if m.nb_params_maintenance > 0
+			for i in 1:m.nb_params_maintenance
+				m.dVleft[i]= m.dVright[i] + (m.time[m.k+1]  - m.time[m.k]) * m.dA[i]
+			end
 		end
 	end
 end
+
+function update_maintenance!(m::Model, id_mod::Int; gradient::Bool=false, hessian::Bool=false)
+	update!(m.models[1 + id_mod], m; gradient=gradient, hessian=hessian)
+	save_id_mod(m, id_mod)
+end
+
 
 function data!(m::Model,data::Union{DataFrame, DataFrame})
 	m.data=DataFrame[]
@@ -168,10 +180,10 @@ function select_data(m::Model, i::Int)
 	end
 end
 
-# DataFrame VamModel::get_selected_data(int i) {
-# 	select_data(i);//Skipped if data is unset (see above)
-# 	return DataFrame::create(_["Time"]=time,_["Type"]=type);
-# };
+function selected_data(m::Model, i::Int)::DataFrame
+	select_data(m, i) #;//Skipped if data is unset (see above)
+	return DataFrame(time=m.time,type=m.type)
+end
 
 function init_virtual_age_infos(m::Model)
 		# int i;
@@ -248,27 +260,34 @@ function get_virtual_age_infos(m::Model, from::Float64, to::Float64, by::Float64
 	# return res;
 end
 
-# //Covariates related
-# void VamModel::set_covariates(List model) {
-# 	sum_cov=0.0;
-# 	nb_paramsCov=0;
-# 	if(model.containsElementNamed("covariates")) {
-# 		List covariates_=model["covariates"];
-# 		data_cov=covariates_["data"];
-# 		params_cov=covariates_["params"];
-# 		nb_paramsCov=params_cov.size();
-# 	}
-# }
-
-function compute_covariates(m::Model)::Float64
-	sum_cov=0.0
-	# for j in 0:(m.nb_params_cov - 1)
-	# 	# NumericVector var=data_cov[j];
-	# 	# sum_cov += params_cov[j] * var[current_system];
-	# 	# //printf("syst=%d,j=%d,th=%lf,params_cov=%lf\n",current_system,j,params_cov[j],var[current_system]);
-	# end
-	return sum_cov;
+function select_current_system(m::Model, i::Int, compute::Bool)
+	#//Covariates related
+	m.current_system = i
+	#//simulation: compute=false since only computation in c++ and set_current_system in R
+	#//mle: compute=true since both computation and select_current_system in c++
+	if compute
+		compute_covariates(m)
+	end
 end
+
+# //Covariates related
+function covariates!(m::Model, params::Vector{Float64}, data::DataFrame) 
+	m.sum_cov = 0.0
+	m.data_cov = data
+	m.params_cov = params
+	m.nb_params_cov = length(m.params_cov)
+end
+
+function compute_covariates(m::Model)
+	m.sum_cov = 0.0
+	for j in 1:m.nb_params_cov
+		m.sum_cov += m.params_cov[j] * m.data_cov[m.current_system, j]
+		# //printf("syst=%d,j=%d,th=%lf,params_cov=%lf\n",current_system,j,params_cov[j],var[current_system]);
+	end
+	return m.sum_cov
+end
+
+covariate(m::Model, j::Int) = m.data_cov[m.current_system, j]
 
 has_maintenance_policy(m::Model)::Bool = isdefined(m,:maintenance_policy) || isnothing(m.maintenance_policy)
 
@@ -287,8 +306,9 @@ end
 function save_id_mod(m::Model, id_mod::Int)
 	m.id_mod = id_mod
 	if id_mod == 0
-		m.id_params = 0
+		m.id_params = 1
 	else
 		m.id_params += nb_params(m.models[id_mod]) 
 	end
+	# println("save_id_mod $(m.id_mod) $(m.id_params)")
 end

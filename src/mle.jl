@@ -69,7 +69,9 @@ function contrast(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Fl
     params!(mle.model,param);
     # //printf("System %d\n",1);
     select_data(mle.model, 1)
-    # if(model.nb_params_cov > 0) mle.model.select_current_system(0,true);
+    if mle.model.nb_params_cov > 0 
+        select_current_system(mle.model, i, true)
+    end
     select_left_censor(mle, 1)
     contrast_current(mle)
     # //only if multi-system
@@ -117,13 +119,13 @@ function contrast_current(mle::MLE)
             type = 0
         end
         #//model.indMode = (type < 0 ? 0 : type);
-        update!(mle.model.models[1 + type], mle.model)
+        update_maintenance!(mle.model, type)
     end
     contrast_update_S(mle)
 end
 
 function contrast_update_current(mle::MLE; deriv::Bool=false)
-    update_Vleft!(mle.model,with_gradient=deriv,with_hessian=deriv)
+    update_Vleft!(mle.model, gradient=deriv, hessian=deriv)
     mle.model.hVleft = hazard_rate(mle.model.family, mle.model.Vleft)
     mle.model.indType = (mle.model.type[mle.model.k + 1] < 0 ? 1.0 : 0.0)
     if mle.model.k >= mle.left_censor 
@@ -157,9 +159,11 @@ function gradient(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)
     init!(mle.comp, deriv = true)
     params!(mle.model, param)
     select_data(mle.model, 1)
-    # if(model.nb_params_cov > 0) mle.model.select_current_system(0,true);
+    if mle.model.nb_params_cov > 0 
+        select_current_system(mle.model, 1, true)
+    end
     select_left_censor(mle, 1)
-    gradient_current_system(mle)
+    gradient_current(mle)
     # //only if multi-system
     if mle.model.nb_system > 1
         for i in 2:mle.model.nb_system 
@@ -190,10 +194,10 @@ function gradient(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)
     end
     np += mle.nb_params_maintenance
     if mle.model.nb_params_cov > 0
-    for i in 1:model.nb_params_cov
-        res[i + np] = -mle.comp.dS1[i + np - 1] * param[1] + mle.comp.dS4[i]
+        for i in 1:model.nb_params_cov
+            res[i + np] = -mle.comp.dS1[i + np - 1] * param[1] + mle.comp.dS4[i]
+        end
     end
-
     param[1] = alpha ## BIZARRE!
     return res
 end
@@ -208,7 +212,7 @@ function gradient_current(mle::MLE)
             type = 0
         end
         # //model.indMode = (type < 0 ? 0 : type)
-        update!(mle.model.models[1 + type], mle.model, gradient = true)
+        update_maintenance!(mle.model, type, gradient = true)
     end
     contrast_update_S(mle)
     #//precomputation of covariate term to multiply (in fact just exp)
@@ -217,11 +221,11 @@ function gradient_current(mle::MLE)
     end
     np = mle.model.nb_params_family
     for i in 1:mle.model.nb_params_maintenance
-        gradient_update_dS_maintenance(i + np,i)
+        gradient_update_dS_maintenance(mle, i + np,i)
     end
     np += mle.model.nb_params_cov
     for i in 1:mle.model.nb_params_cov
-        gradient_update_dS_covariate(i + np, i)
+        gradient_update_dS_covariate(mle, i + np, i)
     end
 end
 
@@ -231,7 +235,7 @@ function gradient_update_current(mle::MLE)
     cumhVright_param_derivative = cumulative_hazard_rate_param_derivative(mle.model.family, mle.model.Vright, true)
     cumhVleft_param_derivative=cumulative_hazard_rate_param_derivative(mle.model.family, mle.model.Vleft, false)
     hVleft_param_derivative=hazard_rate_param_derivative(mle.model.family, mle.model.Vleft, false)
-    for i in 1:mle.model.nb_params_family
+    for i in 1:(mle.model.nb_params_family - 1)
         if mle.model.k >= mle.left_censor 
             mle.model.comp.dS1[i] +=  cumhVleft_param_derivative[i]-cumhVright_param_derivative[i]
         end
@@ -240,7 +244,7 @@ function gradient_update_current(mle::MLE)
     hVright=hazard_rate(mle.model.family, mle.model.Vright)
     dhVleft=hazard_rate_derivative(mle.model.family, mle.model.Vleft)
     # printf("k:%d,hVright:%lf,dhVleft:%lf,indType:%lf\n",model.k,hVright,dhVleft,model.indType);
-    np = mle.model.nb_params_family
+    np = mle.model.nb_params_family - 1
     for i in 1:mle.model.nb_params_maintenance
         if mle.model.k >= mle.left_censor 
             mle.model.comp.dS1[i + np] += mle.model.hVleft * mle.model.dVleft[i] - hVright * mle.model.dVright[i]
@@ -280,7 +284,9 @@ function hessian(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)
     init!(mle.comp, deriv = true)
     params!(mle.model, param)
     select_data(mle.model, 1)
-    # if(model.nb_params_cov > 0) mle.model.select_current_system(0,true);
+    if mle.model.nb_params_cov > 0 
+        select_current_system(mle.model, 1, true)
+    end
     select_left_censor(mle, 1)
     hessian_current(mle)
 
@@ -390,7 +396,7 @@ function hessian_current(mle::MLE)
             type = 0
         end
         # //model.indMode = (type < 0 ? 0 : type)
-        update!(mle.model.models[1 + type], mle.model, hessian = true)
+        update_maintenance!(mle.model, type, hessian = true)
     end
     contrast_update_S(mle)
     for i = 1:mle.model.nb_params_family

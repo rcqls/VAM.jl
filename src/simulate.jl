@@ -66,8 +66,7 @@ function simulate(sim::Simulator, stop::Union{Nothing, Real, Vector{Any}}; syste
 
 
         #     #//# update the next k, and save model in model too!
-            update!(sim.model.models[id_mod + 1], sim.model) #false,false)
-            save_id_mod(sim.model, id_mod)
+            update_maintenance!(sim.model, id_mod) #false,false)
             run = ok(sim)
             ## TODO work on stop later
         end

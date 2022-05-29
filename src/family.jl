@@ -48,7 +48,7 @@ hazard_rate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.�
 inverse_hazard_rate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : (x/f.α/f.β)^(1/(f.β-1)))
 cumulative_hazard_rate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * x^f.β)
 inverse_cumulative_hazard_rate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : (x/f.α)^(1/f.β))
-hasard_rate_derivative(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.β * (f.β - 1) * x^(f.β - 2) )
+hazard_rate_derivative(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.β * (f.β - 1) * x^(f.β - 2) )
 
 function hazard_rate_param_derivative(f::WeibullFamilyModel, x::Float64,right::Bool)::Vector{Float64}
     dh = right ? f.comp.dhR : f.comp.dhL
@@ -115,7 +115,7 @@ function cumulative_hazard_rate(f::LogLinearFamilyModel, x::Float64)::Float64
     return res
 end
 inverse_cumulative_hazard_rate(f::LogLinearFamilyModel, x::Float64)::Float64 = log(1 + x * f.β / f.α) / f.β
-hasard_rate_derivative(f::LogLinearFamilyModel, x::Float64)::Float64 = (x<0 ? 0 : f.α * f.β * exp(f.β * x))
+hazard_rate_derivative(f::LogLinearFamilyModel, x::Float64)::Float64 = (x<0 ? 0 : f.α * f.β * exp(f.β * x))
 
 function hazard_rate_param_derivative(f::LogLinearFamilyModel, x::Float64,right::Bool)::Vector{Float64}
     dh = right ? f.comp.dhR : f.comp.dhL
@@ -193,7 +193,7 @@ hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.
 inverse_hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : (x/f.α/f.β)^(1/(f.β-1)) - f.δ)
 cumulative_hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * ((x + f.δ)^f.β - x^f.β) )
 inverse_cumulative_hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : (f.δ^f.β + x/f.α) ^ (1/f.β) - f.δ)
-hasard_rate_derivative(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.β * (f.β - 1) * (x + f.δ)^(f.β - 2) )
+hazard_rate_derivative(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.β * (f.β - 1) * (x + f.δ)^(f.β - 2) )
 
 function hazard_rate_param_derivative(f::Weibull3FamilyModel, x::Float64,right::Bool)::Vector{Float64}
     dh = right ? f.comp.dhR : f.comp.dhL
