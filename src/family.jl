@@ -100,11 +100,11 @@ nb_params(fm::LogLinearFamilyModel) = 2
 hazard_rate(f::LogLinearFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * exp(f.β * x) )
 inverse_hazard_rate(f::LogLinearFamilyModel, x::Float64)::Float64 = log(x/f.α)/f.β
 function cumulative_hazard_rate(f::LogLinearFamilyModel, x::Float64)::Float64
-    res::Float64
+    res = 0.0
     if abs(f.β*x) < bxLim 
       prec = f.β * x/2
       res = 1 + prec
-      for i in 1:LDorder
+      for i in 1:(LDorder - 1)
         prec = prec * f.β*x / (i+1)
         res += prec
       end
@@ -142,14 +142,14 @@ function cumulative_hazard_rate_param_derivative(f::LogLinearFamilyModel, x::Flo
 end
 function hazard_rate_derivative_param_derivative(f::LogLinearFamilyModel, x::Float64)::Vector{Float64}
     f.comp.dhd[1]= f.α * exp(f.β * x) * (1 + f.β*x)
-    return dhd
+    return f.comp.dhd
 end
-function hazard_rate_2derivative(f::LogLinearFamilyModel, x::Float64)::Vector{Float64}
+function hazard_rate_2derivative(f::LogLinearFamilyModel, x::Float64)::Float64
     return x<=0 ? 0 : f.α * f.β^2 * exp(f.β*x)
 end
 function hazard_rate_param_2derivative(f::LogLinearFamilyModel, x::Float64)::Vector{Float64}
     f.comp.d2h[1] = f.α * x^2 * exp(f.β*x)
-    return d2h
+    return f.comp.d2h
 end
 function cumulative_hazard_rate_param_2derivative(f::LogLinearFamilyModel, x::Float64, right::Bool)::Vector{Float64}
     prec = 0.0
