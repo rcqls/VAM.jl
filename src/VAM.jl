@@ -5,6 +5,7 @@ export @vam, @stop, params, params!, select_data, simulator, sim, simulate, mle
 
 abstract type AbstractModel end
 
+include("tool.jl")
 include("compute.jl")
 include("formula.jl")
 include("family.jl")

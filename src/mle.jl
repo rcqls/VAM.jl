@@ -50,11 +50,15 @@ function init_mle(mle::MLE; deriv::Bool=false)
         end
     end
     if deriv
-        mle.model.dVright = zeros(mle.model.comp.nbd)
-        mle.model.dA = zeros(mle.model.comp.nbd)
-        nb2m = mle.model.nb_params_maintenance * (mle.model.nb_params_maintenance + 1) ÷ 2
-        mle.model.d2Vright = zeros(nb2m)
-        mle.model.d2A = zeros(nb2m)
+        # mle.model.dVright = zeros(mle.model.comp.nbd)
+        # mle.model.dA = zeros(mle.model.comp.nbd)
+        # nb2m = mle.model.nb_params_maintenance * (mle.model.nb_params_maintenance + 1) ÷ 2
+        # mle.model.d2Vright = zeros(nb2m)
+        # mle.model.d2A = zeros(nb2m)
+        fill!(mle.model.dVright, 0.0)
+        fill!(mle.model.dA, 0.0)
+        fill!(mle.model.d2Vright, 0.0)
+        fill!(mle.model.d2A, 0.0)
     end
 end
 
@@ -301,7 +305,8 @@ function hessian(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)
             hessian_current(mle)
         end
     end
-
+    # println("dS1=$(mle.comp.dS1) dS2=$(mle.comp.dS2) ")
+    # println("d2S1=$(mle.comp.d2S1) d2S2=$(mle.comp.d2S3) d2S2=$(mle.comp.d2S3) ")
     # //compute hessian
     if !alpha_fixed
         res[1,1] = 0
@@ -318,30 +323,30 @@ function hessian(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)
             end
         end
         for i in mle.model.nb_params_family:(mle.model.nb_params_maintenance + mle.model.nb_params_family - 1)
-            ii = (i - 1) * i ÷ 2 + i
+            ii = ind_ij(i, i)
             res[1, i + 1] = 0
             res[i + 1, 1] = 0
             res[i + 1, i + 1] = mle.comp.dS1[i]^2 / mle.comp.S1^2 * mle.comp.S0 - mle.comp.d2S1[ii] / mle.comp.S1 * mle.comp.S0 + mle.comp.d2S2[ii] + mle.comp.d2S3[(i - 1 -(mle.model.nb_params_family - 1)) * (i -(mle.model.nb_params_family - 1)) ÷ 2 + i - (mle.model.nb_params_family-1)]
             for j in 1:(mle.model.nb_params_family-1)
-                ij = (i - 1) * i ÷ 2 + j
+                ij = ind_ij(i, j)
                 #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
                 res[i + 1, j + 1] = mle.comp.dS1[i] * mle.comp.dS1[j] / mle.comp.S1^2 * mle.comp.S0 - mle.comp.d2S1[ij] / mle.comp.S1 * mle.comp.S0 + mle.comp.d2S2[ij]
                 res[j + 1, i + 1] = res[i + 1, j + 1]
             end
             for j in mle.model.nb_params_family:(i - 1)
-                ij = (i - 1) * i ÷ 2 + j
+                ij = ind_ij(i, j)
                 #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
                 res[i + 1, j + 1] = mle.comp.dS1[i] * mle.comp.dS1[j] / mle.comp.S1^2 * mle.comp.S0 - mle.comp.d2S1[ij] / mle.comp.S1 * mle.comp.S0 + mle.comp.d2S2[ij] + mle.comp.d2S3[(i - (mle.model.nb_params_family-1)) * (i - (mle.model.nb_params_family - 1) + 1) ÷ 2 + j - (mle.model.nb_params_family - 1)]
                 res[j + 1, i + 1] = res[i + 1, j + 1]
             end
         end
         for i in (mle.model.nb_params_maintenance + mle.model.nb_params_family):(mle.model.nb_params_maintenance + mle.model.nb_params_family + mle.model.nb_params_cov - 1)
-            ii = (i - 1) * i ÷ 2 + i
-            res[1,i + 1] = 0
+            ii = ind_ij(i, i)
+            res[1, i + 1] = 0
             res[i + 1, 1] = 0
             res[i + 1, i + 1] = mle.comp.dS1[i] ^2 / mle.comp.S1^2 * mle.comp.S0 - mle.comp.d2S1[ii] / mle.comp.S1 * mle.comp.S0
             for j in 1:i
-                ij = (i - 1) * i ÷ 2 + j
+                ij = ind_ij(i, j)
                 res[i + 1,j + 1] = mle.comp.dS1[i] * mle.comp.dS1[j] / mle.comp.S1^2 * mle.comp.S0 - mle.comp.d2S1[ij] / mle.comp.S1 * mle.comp.S0
                 res[j + 1,i + 1] = res[i + 1,j + 1]
             end
@@ -352,42 +357,42 @@ function hessian(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)
 
         res[1, 1] = -mle.comp.S0 / alpha^2
         for i in 1:(mle.model.nb_params_family-1)
-            ii = (i - 1) * i ÷ 2 + i
+            ii = ind_ij(i, i)
             res[1,i + 1] = -mle.comp.dS1[i]
             res[i + 1,1] = -mle.comp.dS1[i]
             res[i + 1,i + 1] = mle.comp.d2S2[ii] - alpha * mle.comp.d2S1[ii]
             for j in 1:i
-                ij = (i - 1) * i ÷ 2 + j
+                ij = ind_ij(i, j)
                 #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
                 res[i + 1,j + 1] = mle.comp.d2S2[ij] - alpha * mle.comp.d2S1[ij]
                 res[j + 1,i + 1] = res[i + 1,j + 1]
             end
         end
         for i in mle.model.nb_params_family:(mle.model.nb_params_maintenance + mle.model.nb_params_family - 1)
-            ii = (i - 1) * i ÷ 2 + i
+            ii = ind_ij(i, i)
             res[1, i + 1] = -mle.comp.dS1[i]
             res[i + 1, 1] = -mle.comp.dS1[i]
-            res[i + 1, i + 1] = mle.comp.d2S2[ii] - alpha * mle.comp.d2S1[ii] + mle.comp.d2S3[(i-(mle.model.nb_params_family-1)) * (i - (mle.model.nb_params_family - 1) + 1) ÷ 2 + i - (mle.model.nb_params_family - 1)]
+            res[i + 1, i + 1] = mle.comp.d2S2[ii] - alpha * mle.comp.d2S1[ii] + mle.comp.d2S3[ind_ij(i-(mle.model.nb_params_family-1), i - (mle.model.nb_params_family - 1))]
             for j in 1:(mle.model.nb_params_family - 1)
-                ij = (i - 1) * i ÷ 2 + j
+                ij = ind_ij(i, j)
                 #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
                 res[i + 1, j + 1] = mle.comp.d2S2[ij] - alpha * mle.comp.d2S1[ij]
                 res[j + 1, i + 1] = res[i + 1, j + 1]
             end
-            for j in mle.model.nb_params_family:i
-                ij = (i - 1) * i ÷ 2 + j
+            for j in mle.model.nb_params_family:(i - 1)
+                ij = ind_ij(i, j)
                 #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-                res[i + 1, j + 1] = mle.comp.d2S2[ij] - alpha * mle.comp.d2S1[ij] + mle.comp.d2S3[(i - (mle.model.nb_params_family - 1)) * (i - (mle.model.nb_params_family - 1) + 1) ÷ 2 + j - (mle.model.nb_params_family - 1)]
+                res[i + 1, j + 1] = mle.comp.d2S2[ij] - alpha * mle.comp.d2S1[ij] + mle.comp.d2S3[ind_ij(i - (mle.model.nb_params_family - 1), j - (mle.model.nb_params_family - 1))]
                 res[j + 1, i + 1] = res[i + 1, j + 1]
             end
         end
         for i in (mle.model.nb_params_maintenance+mle.model.nb_params_family):(mle.model.nb_params_maintenance+mle.model.nb_params_family + mle.model.nb_params_cov - 1)
-            ii = (i - 1) * i ÷ 2 + i
+            ii = ind_ij(i, i)
             res[1, i + 1] = -mle.comp.dS1[i]
             res[i + 1, 1] = -mle.comp.dS1[i]
             res[i + 1, i + 1] = -alpha * mle.comp.d2S1[ii]
             for j in 1:i
-                ij = (i - 1) * i ÷ 2 + j
+                ij = ind_ij(i, j)
                 res[i + 1, j + 1] = -alpha * mle.comp.d2S1[ij]
                 res[j + 1, i + 1] = res[i + 1 , j + 1]
             end
@@ -401,6 +406,7 @@ function hessian(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)
 end
 
 function hessian_current(mle::MLE)
+    npf, npm, npc = mle.model.nb_params_family - 1, mle.model.nb_params_maintenance, mle.model.nb_params_cov
     init_mle(mle, deriv = true)
     n = length(mle.model.time)
     while mle.model.k < n
@@ -413,49 +419,51 @@ function hessian_current(mle::MLE)
         update_maintenance!(mle.model, type, hessian = true)
     end
     contrast_update_S(mle)
-    for i = 1:mle.model.nb_params_family
+    for i = 1:npf
         gradient_update_dS_family(mle, i)
         for j in 1:i
             #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-            k = (i - 1) * i ÷ 2 + j
-           mle.comp.d2S1[k] += mle.model.comp.d2S1[k] * (mle.model.nb_params_cov > 0 ? exp(mle.model.sum_cov) : 1.0)
-           mle.comp.d2S2[k] += mle.model.comp.d2S2[k]
+            ij = ind_ij(i, j)
+           mle.comp.d2S1[ij] += mle.model.comp.d2S1[ij] * (mle.model.nb_params_cov > 0 ? exp(mle.model.sum_cov) : 1.0)
+           mle.comp.d2S2[ij] += mle.model.comp.d2S2[ij]
         end
     end
-    np = mle.model.nb_params_family - 1
-    for i in 1:mle.model.nb_params_maintenance
+    np = npf
+    for i in 1:npm
         gradient_update_dS_maintenance(mle, i + np,i)
         for j in 1:i
             #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-            k = (i - 1 + np) * (i + np) ÷ 2 + j
-           mle.comp.d2S1[k] += mle.model.comp.d2S1[k] * (mle.model.nb_params_cov > 0 ? exp(mle.model.sum_cov) : 1.0)
-           mle.comp.d2S2[k] += mle.model.comp.d2S2[k]
+            ij = ind_ij(i + np, j)
+           mle.comp.d2S1[ij] += mle.model.comp.d2S1[ij] * (npc > 0 ? exp(mle.model.sum_cov) : 1.0)
+           mle.comp.d2S2[ij] += mle.model.comp.d2S2[ij]
             #//ii and j(<=ii) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-            kk = (i - 1) * i ÷ 2 + j
-           mle.comp.d2S3[kk] += mle.model.comp.d2S3[kk]
+            ij = ind_ij(i, j)
+           mle.comp.d2S3[ij] += mle.model.comp.d2S3[ij]
         end
         for j=(i + 1):(i + np)
             # //i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-            k = (i - 1 + np) * (i + np) ÷ 2 + j
-           mle.comp.d2S1[k] += mle.model.comp.d2S1[k] * (mle.model.nb_params_cov > 0 ? exp(mle.model.sum_cov) : 1.0)
-           mle.comp.d2S2[k] += mle.model.comp.d2S2[k]
+            ij = ind_ij(i + np, j)
+           mle.comp.d2S1[ij] += mle.model.comp.d2S1[ij] * (npc > 0 ? exp(mle.model.sum_cov) : 1.0)
+           mle.comp.d2S2[ij] += mle.model.comp.d2S2[ij]
         end
     end
-    np += mle.model.nb_params_cov
-    for i in 1:mle.model.nb_params_cov
+    np += npc
+    for i in 1:npc
         gradient_update_dS_covariate(mle, i + np, i)
-        for j in 1:(mle.model.nb_params_family-1 + mle.model.nb_params_maintenance)
-            k = (i + np) * (i + np + 1) ÷ 2 + j
-           mle.comp.d2S1[k] += covariate(mle.model, i) * exp(mle.model.sum_cov) * mle.model.comp.dS1[j]
+        for j in 1:(npf + npm)
+            ij = ind_ij(i + np, j)
+           mle.comp.d2S1[ij] += covariate(mle.model, i) * exp(mle.model.sum_cov) * mle.model.comp.dS1[j]
         end
-        for j in (mle.model.nb_params_family + mle.model.nb_params_maintenance):(i+1)
-            k = (i + np) * (i + np + 1) ÷ 2 + j
-           mle.comp.d2S1[k] += covariate(mle.model, i) * covariate(mle.model, j - mle.model.nb_params_family + 1 - mle.model.nb_params_maintenance) * exp(mle.model.sum_cov) * mle.model.comp.S1;
+        for j in (npf + npm + 1):i
+            ij = ind_ij(i + np, j)
+           mle.comp.d2S1[ij] += covariate(mle.model, i) * covariate(mle.model, j - npf - npm) * exp(mle.model.sum_cov) * mle.model.comp.S1
         end
     end
 end
 
-function hessian_update_current(mle::MLE) 
+function hessian_update_current(mle::MLE)
+    npf = mle.model.nb_params_family - 1
+    npm = mle.model.nb_params_maintenance
     contrast_update_current(mle, deriv =true)
 
     cumhVright_param_derivative = cumulative_hazard_rate_param_derivative(mle.model.family, mle.model.Vright, true)
@@ -464,13 +472,13 @@ function hessian_update_current(mle::MLE)
     cumhVright_param_2derivative = cumulative_hazard_rate_param_2derivative(mle.model.family, mle.model.Vright,true)
     cumhVleft_param_2derivative = cumulative_hazard_rate_param_2derivative(mle.model.family, mle.model.Vleft,false)
     hVleft_param_2derivative = hazard_rate_param_2derivative(mle.model.family, mle.model.Vleft)
-    for i in 1:(mle.model.nb_params_family - 1)
+    for i in 1:npf
         if mle.model.k >= mle.left_censor 
             mle.model.comp.dS1[i] +=  cumhVleft_param_derivative[i] - cumhVright_param_derivative[i]
         end
         mle.model.comp.dS2[i] += hVleft_param_derivative[i] / mle.model.hVleft * mle.model.indType ;
-        for j in 1:(i - 1)
-            ij = i * (i + 1) ÷ 2 + j
+        for j in 1:i
+            ij = ind_ij(i, j)
             if mle.model.k >= mle.left_censor 
                 mle.model.comp.d2S1[ij] += cumhVleft_param_2derivative[ij] - cumhVright_param_2derivative[ij]
             end
@@ -484,8 +492,6 @@ function hessian_update_current(mle::MLE)
     dhVleft_param_derivative = hazard_rate_derivative_param_derivative(mle.model.family, mle.model.Vleft)
     d2hVleft = hazard_rate_2derivative(mle.model.family, mle.model.Vleft)
     # //printf("k:%d,hVright:%lf,dhVleft:%lf,indType:%lf\n",model.k,hVright,dhVleft,model.indType);
-    npf = mle.model.nb_params_family - 1
-    npm = mle.model.nb_params_maintenance
     for i in 1:npm
         if mle.model.k >= mle.left_censor
             mle.model.comp.dS1[i + npf] += mle.model.hVleft * mle.model.dVleft[i] - hVright * mle.model.dVright[i];
@@ -496,7 +502,7 @@ function hessian_update_current(mle::MLE)
         #//column 0 and i+1 corresponds to the line indice of (inferior diagonal part of) the hessian matrice
         mle.model.comp.dS3[i] +=  mle.model.dA[i] / mle.model.A * mle.model.indType;
         for j in 1:npf
-            ij = (i - 1 + npf) * (i + npf) ÷ 2 + j
+            ij = ind_ij(i + npf, j)
             if mle.model.k >= mle.left_censor
                 mle.model.comp.d2S1[ij] += hVleft_param_derivative[j] * mle.model.dVleft[i] - hVright_param_derivative[j] * mle.model.dVright[i]
             end
@@ -504,13 +510,13 @@ function hessian_update_current(mle::MLE)
         end
         for j=1:i
             #//i+1 and j+1(<=i+1) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-            ij = (i - 1 + npf) * (i + npf) ÷ 2 + j + npf
-            iij = (i - 1) * i ÷ 2 + j
+            ijp = ind_ij(i + npf, j + npf)
+            ij = ind_ij(i, j)
             if mle.model.k >= mle.left_censor
-                mle.model.comp.d2S1[ij] += dhVleft * mle.model.dVleft[i] * mle.model.dVleft[j] + mle.model.hVleft * mle.model.d2Vleft[iij] - dhVright * mle.model.dVright[i] * mle.model.dVright[j] - hVright * mle.model.d2Vright[iij]
+                mle.model.comp.d2S1[ijp] += dhVleft * mle.model.dVleft[i] * mle.model.dVleft[j] + mle.model.hVleft * mle.model.d2Vleft[ij] - dhVright * mle.model.dVright[i] * mle.model.dVright[j] - hVright * mle.model.d2Vright[ij]
             end
-            mle.model.comp.d2S2[ij] += (mle.model.dVleft[i] * mle.model.dVleft[j] * (d2hVleft / mle.model.hVleft - (dhVleft / mle.model.hVleft)^2) + dhVleft * mle.model.d2Vleft[iij] / mle.model.hVleft) * mle.model.indType
-            mle.model.comp.d2S3[iij] += (mle.model.d2A[iij] / mle.model.A - mle.model.dA[i] * mle.model.dA[j] / mle.model.A^2) * mle.model.indType
+            mle.model.comp.d2S2[ijp] += (mle.model.dVleft[i] * mle.model.dVleft[j] * (d2hVleft / mle.model.hVleft - (dhVleft / mle.model.hVleft)^2) + dhVleft * mle.model.d2Vleft[ij] / mle.model.hVleft) * mle.model.indType
+            mle.model.comp.d2S3[ij] += (mle.model.d2A[ij] / mle.model.A - mle.model.dA[i] * mle.model.dA[j] / mle.model.A^2) * mle.model.indType
         end
     end
 end
@@ -519,7 +525,6 @@ function alpha_est(mle::MLE, param::Vector{Float64})
     contrast(mle, param) #//To compute mle.comp.S1 and S0
     return mle.comp.S0 / mle.comp.S1
 end
-
 
 
 #     //delegate from model cache!
