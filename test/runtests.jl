@@ -323,24 +323,30 @@ end
 # 	expect_that(contrast(mle,theta,FALSE,FALSE,TRUE),equals(d2C,tolerance=0.00000000000001))
 end
 
-# test_that("Weibull + CM ARAInf + PM AGAN + mutlisystems",{
-# 	simData<-data.frame(System=c(rep(1,4),rep(2,4),rep(3,4),rep(4,4),rep(5,7)),Time=c(3.36,4.04,4.97,5.16, 2.34,3.46,5.02,5.45, 1.18,2.22,3.14,4.83, 0.78,2.36,4.05,4.97, 2.45,2.78,3.56,4.23,5.32,6.43,6.98),Type=c(1,1,1,1, -1,-1,-1,0, 1,-1,-1,1, -1,1,1,0, 1,-1,1,-1,-1,1,0),row.names=1:23)
-#     mle <- mle.vam(System & Time & Type ~ (ARAInf(0.4) | Weibull(0.001,2.5)) & (AGAN()),data=simData)
-#     theta<-c(0.3,1.8,0.3)
-# 	lnL<- -20.373593780469
-# 	dlnL<- c(-25.6662791768442,-8.48131134572237,5.63552763127959)
-# 	d2lnL<- matrix(c(-100,-52.7375595999022,27.2348357573035,-52.7375595999022,-19.8545917834264,17.1554852531126,27.2348357573035,17.1554852531126,-5.23495386861318),nrow=3,byrow=TRUE)
-# 	C<- -18.237304657921
-# 	dC<-c(-1.18653460936235,1.86834447361728)
-# 	d2C<-matrix(c(-3.90302067583932,3.61294880573467,3.61294880573467,-1.23797415150246),nrow=2,byrow=TRUE)
+@testset "mle Weibull + CM ARAInf + PM AGAN + multisystems" begin
+    data = DataFrame(
+        System=vcat([repeat([x],i) for (x, i) in [(1,4), (2,4), (3,4), (4,4), (5,7)]]...),
+        Time=[3.36,4.04,4.97,5.16, 2.34,3.46,5.02,5.45, 1.18,2.22,3.14,4.83, 0.78,2.36,4.05,4.97, 2.45,2.78,3.56,4.23,5.32,6.43,6.98],
+        Type=[1,1,1,1, -1,-1,-1,0, 1,-1,-1,1, -1,1,1,0, 1,-1,1,-1,-1,1,0]
+    )
+    m = mle(
+        @vam(System & Time & Type ~ (ARAInf(0.4) | Weibull(0.001,2.5)) & (AGAN())), 
+        data
+    )
+    θ = [0.3,1.8,0.3]
+    lnL = -20.373593780469
+    dlnL = [-25.6662791768442,-8.48131134572237,5.63552763127959]
+    d2lnL = vcat([[-100,-52.7375595999022,27.2348357573035],[-52.7375595999022,-19.8545917834264,17.1554852531126],[27.2348357573035,17.1554852531126,-5.23495386861318]])
+    C = -18.237304657921
+ 	dC = [-1.18653460936235,1.86834447361728]
+    d2C = vcat([[-3.90302067583932,3.61294880573467],[3.61294880573467,-1.23797415150246]])
 # 	expect_that(logLik(mle,theta,TRUE,FALSE,FALSE),equals(lnL,tolerance=0.00000000000001))
 # 	expect_that(logLik(mle,theta,FALSE,TRUE,FALSE),equals(dlnL,tolerance=0.00000000000001))
 # 	expect_that(logLik(mle,theta,FALSE,FALSE,TRUE),equals(d2lnL,tolerance=0.00000000000001))
 # 	expect_that(contrast(mle,theta,TRUE,FALSE,FALSE),equals(C,tolerance=0.00000000000001))
 # 	expect_that(contrast(mle,theta,FALSE,TRUE,FALSE),equals(dC,tolerance=0.00000000000001))
 # 	expect_that(contrast(mle,theta,FALSE,FALSE,TRUE),equals(d2C,tolerance=0.00000000000001))
-# }
-# )
+end
 
 # test_that("Weibull + CM ARAInf + PM ABAO + mutlisystems",{
 # 	simData<-data.frame(System=c(rep(1,4),rep(2,4),rep(3,4),rep(4,4),rep(5,7)),Time=c(3.36,4.04,4.97,5.16, 2.34,3.46,5.02,5.45, 1.18,2.22,3.14,4.83, 0.78,2.36,4.05,4.97, 2.45,2.78,3.56,4.23,5.32,6.43,6.98),Type=c(1,1,1,1, -1,-1,-1,0, 1,-1,-1,1, -1,1,1,0, 1,-1,1,-1,-1,1,0),row.names=1:23)

@@ -42,6 +42,7 @@ function init_mle(mle::MLE; deriv::Bool=false)
     mle.model.A = 1
     mle.model.k = 1
     mle.model.id_mod = 0 #id of current model
+    mle.model.id_params = 1
     init!(mle.model.comp, deriv=deriv)
 
     for type in mle.model.type

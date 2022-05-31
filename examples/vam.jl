@@ -163,3 +163,29 @@ VAM.hessian(m, θ)
 VAM.contrast(m, θ, alpha_fixed=true)
 VAM.gradient(m, θ, alpha_fixed=true)
 VAM.hessian(m, θ, alpha_fixed=true)
+
+
+data = DataFrame(
+	system=vcat([repeat([x],i) for (x, i) in [(1,4), (2,4), (3,4), (4,4), (5,7)]]...),
+	time=[3.36,4.04,4.97,5.16, 2.34,3.46,5.02,5.45, 1.18,2.22,3.14,4.83, 0.78,2.36,4.05,4.97, 2.45,2.78,3.56,4.23,5.32,6.43,6.98],
+	type=[1,1,1,1, -1,-1,-1,0, 1,-1,-1,1, -1,1,1,0, 1,-1,1,-1,-1,1,0]
+)
+m = mle(
+	@vam(System & Time & Type ~ (ARAInf(0.4) | Weibull(0.001,2.5)) & (AGAN())), 
+	data
+)
+m.model.id_params
+θ = [0.3,1.8,0.3]
+lnL = -20.373593780469
+dlnL = [-25.6662791768442,-8.48131134572237,5.63552763127959]
+d2lnL = vcat([[-100,-52.7375595999022,27.2348357573035],[-52.7375595999022,-19.8545917834264,17.1554852531126],[27.2348357573035,17.1554852531126,-5.23495386861318]])
+C = -18.237304657921
+dC = [-1.18653460936235,1.86834447361728]
+d2C = vcat([[-3.90302067583932,3.61294880573467],[3.61294880573467,-1.23797415150246]])
+VAM.contrast(m,θ)
+#@run 
+VAM.gradient(m, θ)
+VAM.hessian(m, θ)
+VAM.contrast(m, θ, alpha_fixed=true)
+VAM.gradient(m, θ, alpha_fixed=true)
+VAM.hessian(m, θ, alpha_fixed=true)

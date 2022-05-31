@@ -54,6 +54,18 @@ function parse_model(ex_f::Expr)
                     # only 1 MP
                     m.maintenance_policy = eval(complete_name!(ex_mps,1,"MaintenancePolicy"))
                 end
+            else
+                # No MP (maintenance policy) only PMs
+                if ex_pm.args[1] == :+
+                    # several PMs
+                    for pm in ex_pm.args[2:end]
+                        push!(m.models,eval(pm))
+                    end
+                else
+                    # only 1 PM
+                    push!(m.models,eval(ex_pm))
+                end 
+
             end
         else
             ##No PM

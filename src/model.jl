@@ -59,6 +59,7 @@ function init!(m::Model)
 			m.nbPM = 0
 		end
 		m.id_mod = 0
+		m.id_params = 1
 		m.nb_params_maintenance=0
 		for (id, mm) in enumerate(m.models)
 			m.nb_params_maintenance += nb_params(mm)
@@ -307,8 +308,8 @@ function save_id_mod(m::Model, id_mod::Int)
 	m.id_mod = id_mod
 	if id_mod == 0
 		m.id_params = 1
-	else
-		m.id_params += nb_params(m.models[id_mod]) 
+	elseif id_mod > 1
+		m.id_params += nb_params(m.models[id_mod - 1]) 
 	end
 	# println("save_id_mod $(m.id_mod) $(m.id_params)")
 end
