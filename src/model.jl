@@ -1,6 +1,7 @@
 mutable struct Model <: AbstractModel
 	# Main info
-    k::Int # current system
+    k::Int # current index
+	Δt::Float64
 	time::Vector{Float64}
 	type::Vector{Int}
 	current_system::Int #current system
@@ -51,6 +52,7 @@ end
 
 function init!(m::Model)
 		m.k = 1  # current position in data
+		m.Δt = 0
 		m.current_system = 1 # current system
 		m.nb_system = 1 #number of system
 		if isdefined(m, :models) && length(m.models) > 0
@@ -104,6 +106,11 @@ function init!(m::Model)
 		end
 		m.comp = Compute(m)
 		return nothing
+end
+
+function inc!(m::Model)
+	m.k += 1
+	m.Δt = m.time[m.k] - m.time[m.k - 1]
 end
 
 nb_params(m::Model)::Int = m.nb_params_family + m.nb_params_maintenance + n.nb_params_cov

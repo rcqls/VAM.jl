@@ -189,3 +189,33 @@ VAM.hessian(m, θ)
 VAM.contrast(m, θ, alpha_fixed=true)
 VAM.gradient(m, θ, alpha_fixed=true)
 VAM.hessian(m, θ, alpha_fixed=true)
+
+data = DataFrame(
+	time=[18.09,52.07,95.71,145.75,198.7,220.9],
+	type=[-1,-1,-1,-1,-1,-1]
+)
+m = mle(
+	@vam( Time & Type ~ (ARAm(0.5,2) | Weibull(0.001,2.5))),
+	data
+)
+θ = [0.03,2.4,0.7]
+lnL = -2600.46156675627
+dlnL = [-87032.7099834185,-10989.6661601188,6745.47891744838]
+d2lnL = [
+	-6666.66666666667 -367174.735520771 225153.425274492;
+	-367174.735520771 -46307.9946188132 32956.7724964216;
+	225153.425274492 32956.7724964216 -16880.4479240297
+]
+C = -25.948370978711
+dC = [0.32106229767103,6.36255820206048]
+d2C = [
+	-0.909264674311954 3.87406673594902;
+	3.87406673594902 -0.394244003389716
+]
+VAM.contrast(m,θ)
+#@run 
+VAM.gradient(m, θ)
+VAM.hessian(m, θ)
+VAM.contrast(m, θ, alpha_fixed=true)
+VAM.gradient(m, θ, alpha_fixed=true)
+VAM.hessian(m, θ, alpha_fixed=true)

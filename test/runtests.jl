@@ -867,24 +867,36 @@ end
 # }
 # )
 
-# test_that("Weibull + ARAm-m=2",{
-# 	simData<-data.frame(Time=c(18.09,52.07,95.71,145.75,198.7,220.9),Type=c(-1,-1,-1,-1,-1,-1),row.names=1:6)
-#     mle <- mle.vam(Time & Type ~ (ARAm(0.5|2) | Weibull(0.001,2.5)),data=simData)
-#     theta<-c(0.03,2.4,0.7)
-# 	lnL<- -2600.46156675627
-# 	dlnL<- c(-87032.7099834185,-10989.6661601188,6745.47891744838)
-# 	d2lnL<- matrix(c(-6666.66666666667,-367174.735520771,225153.425274492,-367174.735520771,-46307.9946188132,32956.7724964216,225153.425274492,32956.7724964216,-16880.4479240297),nrow=3,byrow=TRUE)
-# 	C<- -25.948370978711
-# 	dC<-c(0.32106229767103,6.36255820206048)
-# 	d2C<-matrix(c(-0.909264674311954,3.87406673594902,3.87406673594902,-0.394244003389716),nrow=2,byrow=TRUE)
+@testset "mle Weibull + ARAm-m=2" begin
+    data = DataFrame(
+        time=[18.09,52.07,95.71,145.75,198.7,220.9],
+        type=[-1,-1,-1,-1,-1,-1]
+    )
+    m = mle(
+        @vam( Time & Type ~ (ARAm(0.5|2) | Weibull(0.001,2.5)))
+        data
+    )
+    θ = [0.03,2.4,0.7]
+    lnL = -2600.46156675627
+    dlnL = [-87032.7099834185,-10989.6661601188,6745.47891744838]
+    d2lnL = [
+        -6666.66666666667 -367174.735520771 225153.425274492;
+        -367174.735520771 -46307.9946188132 32956.7724964216;
+        225153.425274492 32956.7724964216 -16880.4479240297
+    ]
+    C = -25.948370978711
+    dC = [0.32106229767103,6.36255820206048]
+    d2C = [
+        -0.909264674311954 3.87406673594902;
+        3.87406673594902 -0.394244003389716
+    ]
 # 	expect_that(logLik(mle,theta,TRUE,FALSE,FALSE),equals(lnL,tolerance=0.00000000000001))
 # 	expect_that(logLik(mle,theta,FALSE,TRUE,FALSE),equals(dlnL,tolerance=0.00000000000001))
 # 	expect_that(logLik(mle,theta,FALSE,FALSE,TRUE),equals(d2lnL,tolerance=0.00000000000001))
 # 	expect_that(contrast(mle,theta,TRUE,FALSE,FALSE),equals(C,tolerance=0.00000000000001))
 # 	expect_that(contrast(mle,theta,FALSE,TRUE,FALSE),equals(dC,tolerance=0.00000000000001))
 # 	expect_that(contrast(mle,theta,FALSE,FALSE,TRUE),equals(d2C,tolerance=0.00000000000001))
-# }
-# )
+end
 
 # test_that("Weibull + ARAm-m=3",{
 # 	simData<-data.frame(Time=c(18.09,52.07,95.71,145.75,198.7,220.9),Type=c(-1,-1,-1,-1,-1,-1),row.names=1:6)
