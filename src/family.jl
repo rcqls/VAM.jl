@@ -182,18 +182,18 @@ function Weibull3FamilyModel(α::Float64, β::Float64, δ::Float64)
     fm = Weibull3FamilyModel()
     fm.α, fm.β, fm.δ =  α, β, δ
     fm.comp = FamilyCompute()
-    init!(fm.comp)
+    init!(fm.comp, fm)
     return fm
 end
 params(fm::Weibull3FamilyModel)::Vector{Float64} = [fm.α,fm.β,fm.δ]
 params!(fm::Weibull3FamilyModel, p::Vector{Float64}) = begin; fm.α,fm.β,fm.δ = p; nothing; end
 nb_params(fm::Weibull3FamilyModel) = 3
 
-hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.β * (x + f.δ)^(f.β - 1) )
-inverse_hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : (x/f.α/f.β)^(1/(f.β-1)) - f.δ)
-cumulative_hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * ((x + f.δ)^f.β - x^f.β) )
-inverse_cumulative_hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : (f.δ^f.β + x/f.α) ^ (1/f.β) - f.δ)
-hazard_rate_derivative(f::Weibull3FamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.β * (f.β - 1) * (x + f.δ)^(f.β - 2) )
+hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = x<0 ? 0 : f.α * f.β * (x + f.δ)^(f.β - 1)
+inverse_hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = x<=0 ? 0 : (x/f.α/f.β)^(1/(f.β-1)) - f.δ
+cumulative_hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = x<=0 ? 0 : f.α * ((x + f.δ)^f.β - f.δ^f.β)
+inverse_cumulative_hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = x<=0 ? 0 : (f.δ^f.β + x/f.α)^(1/f.β) - f.δ
+hazard_rate_derivative(f::Weibull3FamilyModel, x::Float64)::Float64 = x<=0 ? 0 : f.α * f.β * (f.β - 1) * (x + f.δ)^(f.β - 2) 
 
 function hazard_rate_param_derivative(f::Weibull3FamilyModel, x::Float64,right::Bool)::Vector{Float64}
     dh = right ? f.comp.dhR : f.comp.dhL
@@ -208,18 +208,18 @@ function cumulative_hazard_rate_param_derivative(f::Weibull3FamilyModel, x::Floa
     return dH
 end
 function hazard_rate_derivative_param_derivative(f::Weibull3FamilyModel, x::Float64)::Vector{Float64}
-    dhd[1] = x==0 ? 0 : f.α * (2 * f.β - 1 + f.β * (f.β - 1) * log(x + f.δ)) * (x+f.δ)^(f.β-2)
-    dhd[2] = x<=0 ? 0 : f.α * f.β * (f.β - 1) * (f.β - 2) * (x + f.δ)^(f.β - 3)
-    return dhd
+    f.comp.dhd[1] = x==0 ? 0 : f.α * (2 * f.β - 1 + f.β * (f.β - 1) * log(x + f.δ)) * (x+f.δ)^(f.β-2)
+    f.comp.dhd[2] = x<=0 ? 0 : f.α * f.β * (f.β - 1) * (f.β - 2) * (x + f.δ)^(f.β - 3)
+    return f.comp.dhd
 end
-function hazard_rate_2derivative(f::Weibull3FamilyModel, x::Float64)::Vector{Float64}
+function hazard_rate_2derivative(f::Weibull3FamilyModel, x::Float64)::Float64
     return x <= 0 ? 0 : f.α * f.β * (f.β - 1) * (f.β - 2) * (x + f.δ)^(f.β - 3)
 end
 function hazard_rate_param_2derivative(f::Weibull3FamilyModel, x::Float64)::Vector{Float64}
-    d2h[1] = x==0 ? 0 : f.α * (2 + f.β * log(x + f.δ)) * log(x + f.δ) * (x + f.δ)^(f.β - 1)
-    d2h[2] = x==0 ? 0 : f.α * (x + f.δ)^(f.β - 2) * (2 * f.β - 1 + f.β * (f.β - 1) * log(x + f.δ))
-    d2h[3] = x<=0 ? 0 : f.α * f.β * (f.β - 1) * (f.β - 2) * (x + f.δ)^(f.β - 3)
-    return d2h;
+    f.comp.d2h[1] = x==0 ? 0 : f.α * (2 + f.β * log(x + f.δ)) * log(x + f.δ) * (x + f.δ)^(f.β - 1)
+    f.comp.d2h[2] = x==0 ? 0 : f.α * (x + f.δ)^(f.β - 2) * (2 * f.β - 1 + f.β * (f.β - 1) * log(x + f.δ))
+    f.comp.d2h[3] = x<=0 ? 0 : f.α * f.β * (f.β - 1) * (f.β - 2) * (x + f.δ)^(f.β - 3)
+    return f.comp.d2h;
 end
 function cumulative_hazard_rate_param_2derivative(f::Weibull3FamilyModel, x::Float64, right::Bool)::Vector{Float64}
     d2H = right ? f.comp.d2HR : f.comp.d2HL
