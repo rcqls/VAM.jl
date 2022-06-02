@@ -1,29 +1,6 @@
 using VAM
 using DataFrames
 
-s = simulator(
-	@vam(Temps & Type ~ (ARA1(.5) | Weibull(0.01,2.5)) & (ARAInf(.7)+ARAInf(.3)+ ABAO()|Periodic(12,[0.6,0.4]) * AtIntensity(1.2))),
-  	@stop (size < 30) & (time < 30)
-)
-
-df = simulate(s)
-
-params(s.model)
-
-df2 = simulate(s,system=30)
-
-m = mle(
-	@vam(Temps & Type ~ (ARA1(.5) | Weibull(0.01,2.5)) & (ARAInf(.7)+ARAInf(.3)+ ABAO()|Periodic(12,[0.6,0.4]) * AtIntensity(1.2))),
-	df2
-)
-m.model.k
-m.model.data
-
-m.model.time
-
-select_data(m.model,2)
-
-m.model.time
 data = DataFrame(time=[3.36],type=[-1])
 m = mle(
 	@vam(time & type ~ (ARAInf(0.4) | Weibull(0.001,2.5))), 
@@ -36,15 +13,15 @@ d2lnL = vcat([[-11.1111111111111,-10.7372278181901,0],[-10.7372278181901,-4.2125
 c = -1.62415430907299
 dC = [0.555555555555556,0]
 d2C = reshape([-0.308641975308642,0,0,0],2,2)
-VAM.contrast(m,θ)
-VAM.gradient(m, θ)
-VAM.hessian(m, θ)
-VAM.contrast(m, θ, alpha_fixed=true)
-VAM.gradient(m, θ, alpha_fixed=true)
-VAM.hessian(m, θ, alpha_fixed=true)
-@run VAM.contrast(m,θ)
-@run VAM.gradient(m, θ)
-@run VAM.hessian(m, θ)
+contrast(m,θ)
+gradient(m, θ)
+hessian(m, θ)
+contrast(m, θ, alpha_fixed=true)
+gradient(m, θ, alpha_fixed=true)
+hessian(m, θ, alpha_fixed=true)
+# @run contrast(m,θ)
+# @run gradient(m, θ)
+# @run hessian(m, θ)
 
 data = DataFrame(time=[3.36],type=[-1])
 m = mle(
@@ -58,12 +35,12 @@ d2lnL = vcat([[-11.1111111111111,-40.3396633074969,0],[-40.3396633074969,-31.988
 C = -1.15270302129339
 dC = [1.00478465516967,0]
 d2C = reshape([-0.678445876029819,0,0,0], 2, 2)
-VAM.contrast(m,θ)
-VAM.gradient(m, θ)
-VAM.hessian(m, θ)
-VAM.contrast(m, θ, alpha_fixed=true)
-VAM.gradient(m, θ, alpha_fixed=true)
-VAM.hessian(m, θ, alpha_fixed=true)
+contrast(m,θ)
+gradient(m, θ)
+hessian(m, θ)
+contrast(m, θ, alpha_fixed=true)
+gradient(m, θ, alpha_fixed=true)
+hessian(m, θ, alpha_fixed=true)
 
 data = DataFrame(time=[3.36],type=[-1])
 m = mle(
@@ -77,12 +54,12 @@ d2lnL = vcat([[-11.1111111111111,-55.726172072379,-3.43082096301078,0],[-55.7261
 C = -2.00229062844351
 dC = [0.250199288093325,-0.0329926542472398,0]
 dC = vcat([[-0.0292037862530474,-0.0369910685383343,0],[-0.0369910685383343,0.01048162449677,0],[0,0,0]])
-VAM.contrast(m,θ)
-VAM.gradient(m, θ)
-VAM.hessian(m, θ)
-VAM.contrast(m, θ, alpha_fixed=true)
-VAM.gradient(m, θ, alpha_fixed=true)
-VAM.hessian(m, θ, alpha_fixed=true)
+contrast(m,θ)
+gradient(m, θ)
+hessian(m, θ)
+contrast(m, θ, alpha_fixed=true)
+gradient(m, θ, alpha_fixed=true)
+hessian(m, θ, alpha_fixed=true)
 
 
 data = DataFrame(time=[3.36,4.04,4.97,5.16], type=[-1,-1,-1,-1])
@@ -97,12 +74,12 @@ d2lnL = vcat([[-44.4444444444444,-5.26230480903023,-0.723044448779292],[-5.26230
 C = -5.36231016699152
 dC = [2.08694474533596,0.693079297460398]
 d2C = vcat([-4.31732300351524,-3.55104259186756],[-3.55104259186756,-0.351517905180765])
-VAM.contrast(m,θ)
-VAM.gradient(m, θ)
-VAM.hessian(m, θ)
-VAM.contrast(m, θ, alpha_fixed=true)
-VAM.gradient(m, θ, alpha_fixed=true)
-VAM.hessian(m, θ, alpha_fixed=true)
+contrast(m,θ)
+gradient(m, θ)
+hessian(m, θ)
+contrast(m, θ, alpha_fixed=true)
+gradient(m, θ, alpha_fixed=true)
+hessian(m, θ, alpha_fixed=true)
 
 
 data = DataFrame(time=[3.36,4.04,4.97,5.16], type=[-1,-1,-1,-1])
@@ -117,12 +94,12 @@ d2lnL = vcat([[-44.4444444444444,-5.58984454112956,-0.51705781427391],[-5.589844
 C = -5.5202288755881
 dC = [2.90098061507367,0.575831839583211]
 d2C = vcat([[-4.65895384634265,-3.11529381117442],[-3.11529381117442,0.845549840945982]])
-VAM.contrast(m,θ)
-VAM.gradient(m, θ)
-VAM.hessian(m, θ)
-VAM.contrast(m, θ, alpha_fixed=true)
-VAM.gradient(m, θ, alpha_fixed=true)
-VAM.hessian(m, θ, alpha_fixed=true)
+contrast(m,θ)
+gradient(m, θ)
+hessian(m, θ)
+contrast(m, θ, alpha_fixed=true)
+gradient(m, θ, alpha_fixed=true)
+hessian(m, θ, alpha_fixed=true)
 
 
 data = DataFrame(time=[3.36,4.04,4.97,5.16], type=[-1,-1,-1,-1])
@@ -137,12 +114,12 @@ d2lnL = vcat([[-44.4444444444444,-2.40399936753948],[-2.40399936753948,-7.665271
 C = -5.25256034408912
 dC = 1.99329429144225
 d2C = -9.26821752088532
-VAM.contrast(m,θ)
-VAM.gradient(m, θ)
-VAM.hessian(m, θ)
-VAM.contrast(m, θ, alpha_fixed=true)
-VAM.gradient(m, θ, alpha_fixed=true)
-VAM.hessian(m, θ, alpha_fixed=true)
+contrast(m,θ)
+gradient(m, θ)
+hessian(m, θ)
+contrast(m, θ, alpha_fixed=true)
+gradient(m, θ, alpha_fixed=true)
+hessian(m, θ, alpha_fixed=true)
 
 
 data = DataFrame(time=[3.36,4.04,4.97,5.16], type=[-1,-1,-1,-1])
@@ -157,12 +134,12 @@ d2lnL = vcat([[-44.4444444444444,-304.849916531164],[-304.849916531164,-390.9438
 C = -1.77041141396439
 dC = 1.55193690275558
 d2C = -4.47702275378921
-VAM.contrast(m,θ)
-VAM.gradient(m, θ)
-VAM.hessian(m, θ)
-VAM.contrast(m, θ, alpha_fixed=true)
-VAM.gradient(m, θ, alpha_fixed=true)
-VAM.hessian(m, θ, alpha_fixed=true)
+contrast(m,θ)
+gradient(m, θ)
+hessian(m, θ)
+contrast(m, θ, alpha_fixed=true)
+gradient(m, θ, alpha_fixed=true)
+hessian(m, θ, alpha_fixed=true)
 
 
 data = DataFrame(
@@ -182,13 +159,13 @@ d2lnL = vcat([[-100,-52.7375595999022,27.2348357573035],[-52.7375595999022,-19.8
 C = -18.237304657921
 dC = [-1.18653460936235,1.86834447361728]
 d2C = vcat([[-3.90302067583932,3.61294880573467],[3.61294880573467,-1.23797415150246]])
-VAM.contrast(m,θ)
+contrast(m,θ)
 #@run 
-VAM.gradient(m, θ)
-VAM.hessian(m, θ)
-VAM.contrast(m, θ, alpha_fixed=true)
-VAM.gradient(m, θ, alpha_fixed=true)
-VAM.hessian(m, θ, alpha_fixed=true)
+gradient(m, θ)
+hessian(m, θ)
+contrast(m, θ, alpha_fixed=true)
+gradient(m, θ, alpha_fixed=true)
+hessian(m, θ, alpha_fixed=true)
 
 data = DataFrame(
 	time=[18.09,52.07,95.71,145.75,198.7,220.9],
@@ -212,10 +189,10 @@ d2C = [
 	-0.909264674311954 3.87406673594902;
 	3.87406673594902 -0.394244003389716
 ]
-VAM.contrast(m,θ)
+contrast(m,θ)
 #@run 
-VAM.gradient(m, θ)
-VAM.hessian(m, θ)
-VAM.contrast(m, θ, alpha_fixed=true)
-VAM.gradient(m, θ, alpha_fixed=true)
-VAM.hessian(m, θ, alpha_fixed=true)
+gradient(m, θ)
+hessian(m, θ)
+contrast(m, θ, alpha_fixed=true)
+gradient(m, θ, alpha_fixed=true)
+hessian(m, θ, alpha_fixed=true)

@@ -1,3 +1,8 @@
+function simulate(model::Model, stop::Union{Nothing, Real, Vector{Any}}; system::Int=1)::DataFrame
+    sim = simulator(model, stop)
+    return simulate(sim, system = system)
+end
+
 mutable struct Simulator
     model::Model
     stop_policy::Union{Nothing,Expr}
@@ -28,7 +33,9 @@ end
 
 function simulate(sim::Simulator, stop::Union{Nothing, Real, Vector{Any}}; system::Int=1)::DataFrame
     add_stop_policy!(sim, stop)
-    has_maintenance_policy(sim.model) || first(sim.model.maintenance_policy)
+    if has_maintenance_policy(sim.model)
+        first(sim.model.maintenance_policy)
+    end
     data = DataFrame()
     for syst in 1:system
         init!(sim)

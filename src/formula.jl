@@ -56,6 +56,7 @@ function parse_model(ex_f::Expr)
                 end
             else
                 # No MP (maintenance policy) only PMs
+
                 if ex_pm.args[1] == :+
                     # several PMs
                     for pm in ex_pm.args[2:end]

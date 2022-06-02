@@ -1,3 +1,15 @@
+function mle(model::Model, params::Vector{Float64}, data::DataFrame; method = LBFGS()) #Newton())
+    m = MLE(model, data)
+    f(params) = -contrast(m, params)
+    function g!(storage, params)
+        storage .= -gradient(m, params)
+    end
+    # function h!(storage, params)
+    #     storage .= -hessian(m, params)
+    # end
+    optimize(f, g!, params; method=method)
+end
+
 mutable struct MLE
     model::Model
     left_censors::Vector{Int} #CAREFUL: this is a vector of indices!
@@ -15,8 +27,6 @@ function MLE(model::Model, data::DataFrame)::MLE
     left_censors!(mle, Int[])
     return mle
 end
-
-mle(model::Model, data::DataFrame)::MLE = MLE(model, data)
 
 ## TODO: deal with left_censors
 function left_censors!(m::MLE, left_censors::Vector{Int})

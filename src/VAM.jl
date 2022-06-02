@@ -1,7 +1,8 @@
 module VAM
 
-using Random, DataFrames
+using Random, DataFrames, Optim
 export @vam, @stop, params, params!, select_data, simulator, sim, simulate, mle
+export contrast, gradient, hessian
 
 abstract type AbstractModel end
 

@@ -145,8 +145,8 @@ function update_Vleft!(m::Model; gradient::Bool=false, hessian::Bool=false)
 		if m.nb_params_maintenance > 0
 			for i in 1:m.nb_params_maintenance
 				m.dVleft[i] = m.dVright[i] + (m.time[m.k+1] - m.time[m.k]) * m.dA[i]
-				for j in 0:(i - 1)
-					ij = i * (i + 1) ÷ 2 + j
+				for j in 1:i
+					ij = ind_ij(i, j)
 					m.d2Vleft[ij]= m.d2Vright[ij] + (m.time[m.k+1]  - m.time[m.k]) * m.d2A[ij]
 				end
 			end
@@ -297,7 +297,7 @@ end
 
 covariate(m::Model, j::Int) = m.data_cov[m.current_system, j]
 
-has_maintenance_policy(m::Model)::Bool = isdefined(m,:maintenance_policy) || isnothing(m.maintenance_policy)
+has_maintenance_policy(m::Model)::Bool = isdefined(m,:maintenance_policy) #|| !isnothing(m.maintenance_policy)
 
 function max_memory(m::Model)::Int
 	maxmem = 1
