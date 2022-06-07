@@ -1,4 +1,5 @@
 abstract type AbstractMaintenancePolicy end
+function first(mp::AbstractMaintenancePolicy); end
 
 abstract type MaintenancePolicyWithExternalModel <: AbstractMaintenancePolicy end
 function update_external_model(mp::MaintenancePolicyWithExternalModel, model::AbstractModel)

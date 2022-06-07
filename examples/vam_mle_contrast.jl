@@ -2,7 +2,7 @@ using VAM
 using DataFrames
 
 data = DataFrame(time=[3.36],type=[-1])
-m = mle(
+m = VAM.MLE(
 	@vam(time & type ~ (ARAInf(0.4) | Weibull(0.001,2.5))), 
 	data
 )
@@ -19,12 +19,12 @@ hessian(m, θ)
 contrast(m, θ, alpha_fixed=true)
 gradient(m, θ, alpha_fixed=true)
 hessian(m, θ, alpha_fixed=true)
-# @run contrast(m,θ)
+@run contrast(m,θ)
 # @run gradient(m, θ)
 # @run hessian(m, θ)
 
 data = DataFrame(time=[3.36],type=[-1])
-m = mle(
+m = VAM.MLE(
 	@vam(Time & Type ~ (ARAInf(0.4) | LogLinear(0.001,2.5))), 
 	data
 )
@@ -43,7 +43,7 @@ gradient(m, θ, alpha_fixed=true)
 hessian(m, θ, alpha_fixed=true)
 
 data = DataFrame(time=[3.36],type=[-1])
-m = mle(
+m = VAM.MLE(
 	@vam(Time & Type ~ (ARAInf(0.4) | Weibull3(0.001,2.5,5.0))),
 	data
 )
@@ -63,7 +63,7 @@ hessian(m, θ, alpha_fixed=true)
 
 
 data = DataFrame(time=[3.36,4.04,4.97,5.16], type=[-1,-1,-1,-1])
-m = mle(
+m = VAM.MLE(
 	@vam(Time & Type ~ (ARAInf(0.4) | Weibull(0.001,2.5))), 
 	data
 )
@@ -83,7 +83,7 @@ hessian(m, θ, alpha_fixed=true)
 
 
 data = DataFrame(time=[3.36,4.04,4.97,5.16], type=[-1,-1,-1,-1])
-m = mle(
+m = VAM.MLE(
 	@vam(Time & Type ~ (ARA1(0.4) | Weibull(0.001,2.5))), 
 	data
 )
@@ -103,7 +103,7 @@ hessian(m, θ, alpha_fixed=true)
 
 
 data = DataFrame(time=[3.36,4.04,4.97,5.16], type=[-1,-1,-1,-1])
-m = mle(
+m = VAM.MLE(
 	@vam(Time & Type ~ (AGAN() | Weibull(0.001,2.5))), 
 	data
 )
@@ -123,7 +123,7 @@ hessian(m, θ, alpha_fixed=true)
 
 
 data = DataFrame(time=[3.36,4.04,4.97,5.16], type=[-1,-1,-1,-1])
-m = mle(
+m = VAM.MLE(
 	@vam(Time & Type ~ (ABAO() | LogLinear(0.001,2.5))), 
 	data
 )
@@ -147,7 +147,7 @@ data = DataFrame(
 	time=[3.36,4.04,4.97,5.16, 2.34,3.46,5.02,5.45, 1.18,2.22,3.14,4.83, 0.78,2.36,4.05,4.97, 2.45,2.78,3.56,4.23,5.32,6.43,6.98],
 	type=[1,1,1,1, -1,-1,-1,0, 1,-1,-1,1, -1,1,1,0, 1,-1,1,-1,-1,1,0]
 )
-m = mle(
+m = VAM.MLE(
 	@vam(System & Time & Type ~ (ARAInf(0.4) | Weibull(0.001,2.5)) & (AGAN())), 
 	data
 )
@@ -171,7 +171,7 @@ data = DataFrame(
 	time=[18.09,52.07,95.71,145.75,198.7,220.9],
 	type=[-1,-1,-1,-1,-1,-1]
 )
-m = mle(
+m = VAM.MLE(
 	@vam( Time & Type ~ (ARAm(0.5,2) | Weibull(0.001,2.5))),
 	data
 )

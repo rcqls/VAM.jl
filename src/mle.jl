@@ -1,13 +1,17 @@
 function mle(model::Model, params::Vector{Float64}, data::DataFrame; method = LBFGS()) #Newton())
     m = MLE(model, data)
-    f(params) = -contrast(m, params)
+    f(params) = -contrast(m, params, alpha_fixed=true)
     function g!(storage, params)
-        storage .= -gradient(m, params)
+        storage .= -gradient(m, params, alpha_fixed=true)
     end
-    # function h!(storage, params)
-    #     storage .= -hessian(m, params)
-    # end
-    optimize(f, g!, params; method=method)
+    if method in [Newton()]
+        function h!(storage, params)
+            storage .= -hessian(m, params, alpha_fixed=true)
+        end
+        return optimize(f, g!, params; method=method)
+    elseif method in []
+        return optimize(f, g!, params; method=method)
+    end
 end
 
 mutable struct MLE
