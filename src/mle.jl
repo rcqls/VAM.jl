@@ -1,16 +1,17 @@
 function mle(model::Model, params::Vector{Float64}, data::DataFrame; method = LBFGS()) #Newton())
     m = MLE(model, data)
-    f(params) = -contrast(m, params, alpha_fixed=true)
-    function g!(storage, params)
-        storage .= -gradient(m, params, alpha_fixed=true)
+    p = params[2:end]
+    f(p) = -contrast(m, [params[1],p...], alpha_fixed=false)
+    function g!(storage, p)
+        storage .= -gradient(m, [params[1], p...], alpha_fixed=false)[2:end]
     end
-    if method in [Newton()]
-        function h!(storage, params)
-            storage .= -hessian(m, params, alpha_fixed=true)
+    if method isa Optim.SecondOrderOptimizer
+        function h!(storage, p)
+            storage .= -hessian(m, [params[1], p...], alpha_fixed=false)[2:end, 2:end]
         end
-        return optimize(f, g!, params; method=method)
-    elseif method in []
-        return optimize(f, g!, params; method=method)
+        return optimize(f, g!, h!, p, method=method)
+    elseif method isa Optim.FirstOrderOptimizer
+        return optimize(f, g!, p, method=method)
     end
 end
 
@@ -326,18 +327,18 @@ function hessian(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)
     if !alpha_fixed
         res[1,1] = 0
         for i in 1:(mle.model.nb_params_family - 1)
-            ii = (i - 1) * i ÷ 2 + i
+            ii = ind_ij(i, i)
             res[1, i + 1] = 0
             res[i + 1, 1] = 0
             res[i + 1, i + 1] = mle.comp.dS1[i]^2 / mle.comp.S1^2 * mle.comp.S0 - mle.comp.d2S1[ii]/mle.comp.S1 * mle.comp.S0 + mle.comp.d2S2[ii]
             for j in 1:i # ?? or for j in 0:(i - 1)
-                ij = (i - 1) * i ÷ 2 + j
+                ij = ind_ij(i, j)
                 #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
                 res[i + 1, j + 1] = mle.comp.dS1[i] * mle.comp.dS1[j] / mle.comp.S1^2 * mle.comp.S0 - mle.comp.d2S1[ij] / mle.comp.S1 * mle.comp.S0 + mle.comp.d2S2[ij]
                 res[j + 1, i + 1] = res[i + 1,j + 1]
             end
         end
-        for i in mle.model.nb_params_family:(mle.model.nb_params_maintenance + mle.model.nb_params_family - 1)
+        for i in mle.model.nb_params_family:(mle.model.nb_params_maintenance + mle.model.nb_params_family - 2)
             ii = ind_ij(i, i)
             res[1, i + 1] = 0
             res[i + 1, 1] = 0
@@ -348,7 +349,7 @@ function hessian(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)
                 res[i + 1, j + 1] = mle.comp.dS1[i] * mle.comp.dS1[j] / mle.comp.S1^2 * mle.comp.S0 - mle.comp.d2S1[ij] / mle.comp.S1 * mle.comp.S0 + mle.comp.d2S2[ij]
                 res[j + 1, i + 1] = res[i + 1, j + 1]
             end
-            for j in mle.model.nb_params_family:(i - 1)
+            for j in mle.model.nb_params_family:i
                 ij = ind_ij(i, j)
                 #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
                 res[i + 1, j + 1] = mle.comp.dS1[i] * mle.comp.dS1[j] / mle.comp.S1^2 * mle.comp.S0 - mle.comp.d2S1[ij] / mle.comp.S1 * mle.comp.S0 + mle.comp.d2S2[ij] + mle.comp.d2S3[(i - (mle.model.nb_params_family-1)) * (i - (mle.model.nb_params_family - 1) + 1) ÷ 2 + j - (mle.model.nb_params_family - 1)]

@@ -31,7 +31,7 @@ end
 
 function init_dims!(c::Compute, m::AbstractModel)
     c.nbm = m.nb_params_maintenance
-    c.nbd = m.nb_params_maintenance + m.nb_params_family - 1
+    c.nbd = m.nb_params_maintenance + m.nb_params_family - 1 + m.nb_params_cov
     c.nb2m = m.nb_params_maintenance * (m.nb_params_maintenance + 1) ÷ 2
     c.nb2d = c.nbd * (c.nbd + 1) ÷ 2
     c.nbc = m.nb_params_cov
