@@ -15,6 +15,21 @@ function mle(model::Model, params::Vector{Float64}, data::DataFrame; method = LB
     end
 end
 
+function contrast(model::Model, params::Vector{Float64}, data::DataFrame; alpha_fixed::Bool=false)::Float64
+        m = MLE(model, data)
+        return contrast(m, params, alpha_fixed = alpha_fixed)
+end
+
+function gradient(model::Model, params::Vector{Float64}, data::DataFrame; alpha_fixed::Bool=false)::Vector{Float64}
+    m = MLE(model, data)
+    return gradient(m, params, alpha_fixed = alpha_fixed)
+end
+
+function hessian(model::Model, params::Vector{Float64}, data::DataFrame; alpha_fixed::Bool=false)::Matrix{Float64}
+    m = MLE(model, data)
+    return hessian(m, params, alpha_fixed = alpha_fixed)
+end
+
 mutable struct MLE
     model::Model
     left_censors::Vector{Int} #CAREFUL: this is a vector of indices!
@@ -171,7 +186,7 @@ function contrast_update_S(mle::MLE)
     #//printf("Conclusion : mle.comp.S1=%f, S2=%f, S0=%f, S4=%f\n",model.comp.S1,model.comp.S2,model.comp.S0,model.comp.S4);
 end
 
-function gradient(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)
+function gradient(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Vector{Float64}
     res = zeros(mle.model.nb_params_family + mle.model.nb_params_maintenance + mle.model.nb_params_cov)
     alpha=param[1] #save current value of alpha
 
@@ -296,7 +311,7 @@ function gradient_update_dS_covariate(mle::MLE, i::Int, ii::Int)
     mle.comp.dS4[ii] += mle.model.comp.S0 * cov
 end
 
-function hessian(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)
+function hessian(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Matrix{Float64}
     res = zeros(mle.model.nb_params_family + mle.model.nb_params_maintenance + mle.model.nb_params_cov, mle.model.nb_params_family + mle.model.nb_params_maintenance + mle.model.nb_params_cov)
     alpha=param[1] #save current value of alpha
 
