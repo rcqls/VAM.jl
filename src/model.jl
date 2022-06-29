@@ -16,7 +16,7 @@ mutable struct Model <: AbstractModel
 	# index
 	id_mod::Int # current maintenance model
 	id_params::Int # current index in maintenance model parameters
-
+	id_params_list::Vector{Int}
 	mu::Int # max memory of the model
 
 	# Model specification
@@ -63,8 +63,12 @@ function init!(m::Model)
 		m.id_mod = 0
 		m.id_params = 1
 		m.nb_params_maintenance=0
+		cur_id_params = 1
+		m.id_params_list = Int[]
 		for (id, mm) in enumerate(m.models)
+			push!(m.id_params_list, cur_id_params)
 			m.nb_params_maintenance += nb_params(mm)
+			cur_id_params += nb_params(mm)
 		end
 		m.nb_params_family = nb_params(m.family)
 		m.nb_params_cov = 0
@@ -313,10 +317,6 @@ end
 
 function save_id_mod(m::Model, id_mod::Int)
 	m.id_mod = id_mod
-	if id_mod == 0
-		m.id_params = 1
-	elseif id_mod > 1
-		m.id_params += nb_params(m.models[id_mod - 1]) 
-	end
+	m.id_params = m.id_params_list[1 + id_mod]
 	# println("save_id_mod $(m.id_mod) $(m.id_params)")
 end

@@ -1,18 +1,38 @@
-function mle(model::Model, params::Vector{Float64}, data::DataFrame; method = LBFGS()) #Newton())
+function mle(model::Model, params::Vector{Float64},  data::DataFrame; fixed::Union{Vector{Int},Vector{Bool}} = Int[], method = LBFGS())
     m = MLE(model, data)
-    p = params[2:end]
-    f(p) = -contrast(m, [params[1],p...], alpha_fixed=false)
-    function g!(storage, p)
-        storage .= -gradient(m, [params[1], p...], alpha_fixed=false)[2:end]
-    end
-    if method isa Optim.SecondOrderOptimizer
-        function h!(storage, p)
-            storage .= -hessian(m, [params[1], p...], alpha_fixed=false)[2:end, 2:end]
+    # TODO: check boundary for fixed
+    if fixed isa Vector{Bool}
+        res = Int[]
+        for (i,v) in enumerate(fixed)
+            if v
+                push!(res, i)
+            end
         end
-        return optimize(f, g!, h!, p, method=method)
-    elseif method isa Optim.FirstOrderOptimizer
-        return optimize(f, g!, p, method=method)
+        fixed = res
     end
+    unfixed = setdiff(1:length(params),fixed)
+    p = params[unfixed]
+    function f(pars)
+        params[unfixed] = pars
+        -contrast(m, params, alpha_fixed=1 in fixed)
+    end
+    function g!(storage, pars)
+        params[unfixed] = pars
+        storage .= -gradient(m, params, alpha_fixed=1 in fixed)[unfixed]
+    end
+    res = nothing
+    if method isa Optim.FirstOrderOptimizer
+        res = optimize(f, g!, p, method=method)
+    elseif method isa Optim.SecondOrderOptimizer
+        function h!(storage, pars)
+            params[unfixed] = pars
+            storage .= -hessian(m, params, alpha_fixed=1 in fixed)[unfixed, unfixed]
+        end
+        res = optimize(f, g!, h!, p, method=method)
+    end
+    p = params
+    p[unfixed] = Optim.minimizer(res)
+    return (params = p, optim = res, fixed = fixed)
 end
 
 function contrast(model::Model, params::Vector{Float64}, data::DataFrame; alpha_fixed::Bool=false)::Float64
@@ -62,7 +82,6 @@ end
 
 # Rcpp -> init_mle_vam_for_current_system
 function init_mle(mle::MLE; deriv::Bool=false)
-     
     for mm in mle.model.models
         init!(mm)
     end
