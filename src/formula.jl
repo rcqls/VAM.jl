@@ -9,18 +9,22 @@ function parse_model(ex_f::Expr)
     m = Model()
     if Meta.isexpr(ex_f, :call)
         ex_m = ex_f
-        def_names = ["Time", "Type"] # default names
+        varnames = ["Time", "Type"] # default names
         ## model detection
         if ex_f.args[1] == :&
             ## No names given on the left side of :~ => def_names used
             ex_m.args[2] = ex_m.args[2].args[2] # remove unused the tilde
         elseif ex_f.args[1] == :~
             ## Left part is names and right part is the model
-            def_names = map(ex_f.args[2].args[2:3]) do n
-                string(n)
+            vars = if Meta.isexpr(ex_f.args[2].args[2], :call) # System as first variable
+                vcat(ex_f.args[2].args[2].args[2:3], ex_f.args[2].args[3])
+            else
+                ex_f.args[2].args[2:3]
             end
+            varnames = string.(vars)
             ex_m = ex_f.args[3]
         end
+        m.varnames = varnames 
         ## parsing model (ex_m)
         m.models = AbstractMaintenanceModel[]
         #print(ex_m.args)

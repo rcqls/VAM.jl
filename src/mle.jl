@@ -1,4 +1,4 @@
-function mle(model::Model, params::Vector{Float64},  data::DataFrame; fixed::Union{Vector{Int},Vector{Bool}} = Int[], method = LBFGS())
+function mle(model::Model, params::Vector{Float64},  data::DataFrame; fixed::Union{Vector{Int},Vector{Bool}} = [1], method = Newton())
     m = MLE(model, data)
     # TODO: check boundary for fixed
     if fixed isa Vector{Bool}

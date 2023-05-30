@@ -12,5 +12,24 @@ ex_f.args[3].head
 ex_f.args[3].args
 ex_f2.args[3].args
 VAM.parse_model(ex_f)
+ex_f1.head
+ex_f1.args
+ex_f1.args[2].head
+Meta.isexpr(ex_f.args[2].args[2], :call)
+ex_f.args[2]
+Meta.isexpr(ex_f1.args[2].args[2], :call)
+ex_f1.args[2].args[2].args
+
+vars = if Meta.isexpr(ex_f.args[2].args[2], :call)
+    vcat(ex_f.args[2].args[2].args[2:3], ex_f.args[2].args[3])
+else
+    ex_f.args[2].args[2:3]
+end
+
+vars1 = if Meta.isexpr(ex_f1.args[2].args[2], :call)
+    vcat(ex_f1.args[2].args[2].args[2:3], ex_f1.args[2].args[3])
+else
+    ex_f1.args[2].args[2:3]
+end
 VAM.parse_model(ex_f1)
 VAM.parse_model(ex_f2)

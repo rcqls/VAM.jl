@@ -6,6 +6,9 @@ mutable struct Model <: AbstractModel
 	type::Vector{Int}
 	current_system::Int #current system
 
+	# variable names
+	varnames::Vector{String}
+
 	# number
 	nb_system::Int #number of system
 	nbPM::Int
@@ -165,8 +168,10 @@ function update_Vleft!(m::Model; gradient::Bool=false, hessian::Bool=false)
 end
 
 function update_maintenance!(m::Model, id_mod::Int; gradient::Bool=false, hessian::Bool=false)
+	# id_params is used inside update! for gradient and hessian
+	m.id_params = m.id_params_list[1 + id_mod]
 	update!(m.models[1 + id_mod], m; gradient=gradient, hessian=hessian)
-	save_id_mod(m, id_mod)
+	m.id_mod = id_mod
 end
 
 
@@ -313,10 +318,4 @@ function max_memory(m::Model)::Int
 		end
 	end
 	return maxmem
-end
-
-function save_id_mod(m::Model, id_mod::Int)
-	m.id_mod = id_mod
-	m.id_params = m.id_params_list[1 + id_mod]
-	# println("save_id_mod $(m.id_mod) $(m.id_params)")
 end

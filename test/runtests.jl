@@ -1,5 +1,6 @@
 using Test
 using VAM
+using RCall
 @testset "mle Weibull ARAInf CM" begin
 	data = DataFrame(time=[3.36],type=[-1])
 	m = mle(
