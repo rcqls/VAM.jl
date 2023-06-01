@@ -175,15 +175,40 @@ function update_maintenance!(m::Model, id_mod::Int; gradient::Bool=false, hessia
 end
 
 
-function data!(m::Model,data::Union{DataFrame, DataFrame})
-	m.data=DataFrame[]
-	if size(data,2) == 2
-		push!(m.data, vcat(DataFrame(time=0, type=1),data))
-		m.nb_system = 1
-	elseif size(data,2) == 3
-		m.nb_system=maximum(data[!,1])
-		for syst in sort(unique(data[!,1]))
-			push!(m.data, vcat(DataFrame(time=0, type=1),data[data[!,1].==syst,2:3]))
+function data!(m::Model,data::Union{DataFrame,Vector{DataFrame}})
+	if data isa Vector{DataFrame}
+		# TODO: considering maybe sub-dataframe form m.varnames
+		m.data = data
+	else
+		m.data=DataFrame[]
+		if m.varnames ∩ names(data) == m.varnames
+			data2 = data[:, m.varnames]
+			if size(data2, 2) == 2
+				prepend!(data2[!,1], 0)
+				prepend!(data2[!,2], 1)
+				push!(m.data, data2)
+				rename
+			else # multi-system with size(data2, 2) ==3
+				systs = sort(unique(data2[1]))
+				for i=systs
+					push!(m.data, data2[data2[!,1] .== i, :])
+				end
+				m.nb_system = size(m.data[1],2) == 3 ? maximum(m.data[1][!,1]) : 1
+			end
+		elseif size(data,2) == 2
+			push!(m.data, vcat(DataFrame(time=0, type=1),data))
+			rename!(m.data,m.varnames)
+			m.nb_system = 1
+		elseif size(data,2) == 3
+			m.nb_system=maximum(data[!,1])
+			for syst in sort(unique(data[!,1]))
+				push!(m.data, vcat(DataFrame(time=0, type=1),data[data[!,1].==syst,2:3]))
+			end
+			if length(m.varnames) == 2
+				rename!(m.data,m.varnames)
+			else 
+				rename!(m.data,vcat("System", m.varnames))
+			end
 		end
 	end
 	select_data(m,1) #;//default when only one system no need to

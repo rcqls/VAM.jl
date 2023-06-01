@@ -14,7 +14,7 @@ function mle(model::Model, params::Vector{Float64},  data::DataFrame; fixed::Uni
     p = params[unfixed]
     function f(pars)
         params[unfixed] = pars
-        -contrast(m, params, alpha_fixed=1 in fixed)
+        -contrast(m, params, alpha_fixed = 1 in fixed)
     end
     function g!(storage, pars)
         params[unfixed] = pars

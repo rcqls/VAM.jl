@@ -79,10 +79,16 @@ function simulate(sim::Simulator, stop::Union{Nothing, Real, Vector{Any}}; syste
         end
         data = vcat(data,DataFrame(system=syst, time=sim.model.time, type=sim.model.type))
     end
-    if system ==1
+    if system == 1
         data = data[:,[:time, :type]]
     end
-    data[2:size(data,1),:]
+    df = data[2:size(data,1),:]
+    if system > 1
+        rename!(df, vcat(["System"], sim.model.varnames) )
+    else
+        rename!(df, sim.model.varnames)
+    end
+    df
 end
 
 simulate(sim::Simulator; system::Int=1) = simulate(sim, nothing, system=system)

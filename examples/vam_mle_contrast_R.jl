@@ -1,48 +1,79 @@
 using VAM
 using DataFrames
 using RCall
+using Test
+using OrderedCollections
 
-data = DataFrame(time=[3.36],type=[-1])
-m = VAM.MLE(
-	@vam(time & type ~ (ARAInf(0.4) | Weibull(0.001,2.5))), 
-	data
+mutable struct ModelResult 
+	models::Dict
+	results::Dict
+	ModelResult() = new(Dict(),Dict())
+end
+
+modres = ModelResult()
+
+modres.models = Dict(
+	:WInf => Dict(
+		:θ =>  [0.3,1.8,0.6],
+		:data => DataFrame(Temps=[3.36, 4.1],Type=[-1, 0]),
+		:vam => @vam(Temps & Type ~ (ARAInf(0.4) | Weibull(0.001,2.5))),
+		:r => [
+			"data.frame(Time=c(3.36, 4.1),Type=c(-1, 0),row.names=1:2)",
+			"Time & Type ~ (ARAInf(0.4) | Weibull(0.001,2.5))"
+			] 
+	),
+	:W1 => Dict(
+		:θ =>  [0.3,1.8,0.6],
+		:data => DataFrame(Temps=[3.36, 4.1],Type=[-1, 0]),
+		:vam => @vam(Temps & Type ~ (ARA1(0.4) | Weibull(0.001,2.5))),
+		:r => [
+			"data.frame(Time=c(3.36, 4.1),Type=c(-1, 0),row.names=1:2)",
+			"Time & Type ~ (ARA1(0.4) | Weibull(0.001,2.5))"
+			] 
+	)
 )
-θ = [0.3,1.8,0.6]
-lnL = -2.30449245951301
-dlnL = [-5.52619699756427,-1.45367181592636,0]
-d2lnL = [
-	-11.1111111111111 -10.7372278181901 0;
-	-10.7372278181901 -4.21250787723964 0;
-	0 0 0
-]
-lnLJ = contrast(m, θ, alpha_fixed=true)
-gradient(m, θ, alpha_fixed=true)
-hessian(m, θ, alpha_fixed=true)
-c = -1.62415430907299
-dC = [0.555555555555556,0]
-d2C = [-0.308641975308642 0; 0 0]
-contrast(m,θ)
-gradient(m, θ)
-hessian(m, θ)
 
-R"""
-require(VAM)
-simData<-data.frame(Time=c(3.36),Type=c(-1),row.names=1:1)
-mle <- mle.vam(Time & Type ~ (ARAInf(0.4) | Weibull(0.001,2.5)),data=simData)
-theta<-c(0.3,1.8,0.6)
-lnL<- -2.30449245951301
-dlnL<- c(-5.52619699756427,-1.45367181592636,0)
-d2lnL<- matrix(c(-11.1111111111111,-10.7372278181901,0,-10.7372278181901,-4.21250787723964,0,0,0,0),nrow=3,byrow=TRUE)
-C<- -1.62415430907299
-dC<-c(0.555555555555556,0)
-d2C<-matrix(c(-0.308641975308642,0,0,0),nrow=2,byrow=TRUE)
-lnLR <- logLik(mle,theta,TRUE,FALSE,FALSE) #,equals(lnL,tolerance=0.00000000000001))
-dlnLR<- logLik(mle,theta,FALSE,TRUE,FALSE) #,equals(dlnL,tolerance=0.00000000000001))
-d2lnLR <- logLik(mle,theta,FALSE,FALSE,TRUE)#,equals(d2lnL,tolerance=0.00000000000001))
-CR <- contrast(mle,theta,TRUE,FALSE,FALSE)#,equals(C,tolerance=0.00000000000001))
-dCR <- contrast(mle,theta,FALSE,TRUE,FALSE)#,equals(dC,tolerance=0.00000000000001))
-d2CR <- contrast(mle,theta,FALSE,FALSE,TRUE)#,equals(d2C,tolerance=0.00000000000001))
-"""
 
-@rget simData
-@rget lnLR
+function update!(modres::ModelResult, key::Symbol)
+	model = modres.models[key]
+	data = model[:data]
+	θ=model[:θ]
+	result = Dict()
+	m = VAM.MLE(model[:vam], data)
+	R"""
+	require(VAM)
+	simData <- eval(parse(text=$(model[:r][1])))
+	form <-  eval(parse(text=$(model[:r][2])))
+	mle <- mle.vam(form,data=simData)
+	theta <- $(model[:θ])
+	res <- list()
+	res$lnL <- logLik(mle,theta,TRUE,FALSE,FALSE)
+	res$dlnL<- logLik(mle,theta,FALSE,TRUE,FALSE)
+	res$d2lnL <- logLik(mle,theta,FALSE,FALSE,TRUE)
+	res$C <- contrast(mle,theta,TRUE,FALSE,FALSE)
+	res$dC <- contrast(mle,theta,FALSE,TRUE,FALSE)
+	res$d2C <- contrast(mle,theta,FALSE,FALSE,TRUE)
+	"""
+	result[:resR] = @rget res
+	result[:resJL] = OrderedDict(
+		:lnL => contrast(m, θ, alpha_fixed=true),
+		:dlnL => gradient(m, θ, alpha_fixed=true),
+		:d2lnL => hessian(m, θ, alpha_fixed=true),
+		:C => contrast(m, θ),
+		:dC => gradient(m, θ)[2:end],
+		:d2C => hessian(m, θ)[2:end,2:end]
+	)
+	modres.results[key]=result
+end
+
+function test(modres::ModelResult)
+	for (key, result) in modres.results
+		println("model: $key")
+		for k in [:lnL, :dlnL, :d2lnL, :C, :dC]
+			@test result[:resJL][k] == result[:resR][k]
+		end
+	end
+end
+
+update!(modres, :W1)
+test(modres)
