@@ -52,7 +52,7 @@ mutable struct Model <: AbstractModel
 
 	# Formula
 	formula::Expr
-	
+
 	Model() = new()
 end
 
@@ -346,4 +346,27 @@ function max_memory(m::Model)::Int
 		end
 	end
 	return maxmem
+end
+
+# Used inside ModelTest do guess the r formula and RData
+function rterms(m::Model, data::DataFrame)
+	f = m.formula
+	df_rexpr = string("data.frame(", 
+		join(map(names(data)) do var
+			string(var,"=c(",join(data[!,var],","),")")
+		end,","),
+	")")
+	vars_str = replace(string(f.args[2]),"(" => "", ")" => "")
+	model_str = ""
+	if f.args[3].args[1] == :&
+		# CM + PM
+		cm_str = string("(",f.args[3].args[2],")")
+		pm_str = string("(",f.args[3].args[3],")")
+		model_str = cm_str * " & " * pm_str
+	elseif f.args[3].args[1] == :|
+		# CM only
+		model_str = string("(",f.args[3],")")
+	end
+	vam_repxr = string(vars_str, " ~ ", replace( model_str  ,"FamilyModel" => ""))
+	[df_rexpr, vam_repxr]
 end

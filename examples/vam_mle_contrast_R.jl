@@ -11,18 +11,6 @@ function empty!(md::ModelDict)
 	end
 end
 
-
-
-function rterms(m::VAM.Model, data::DataFrame)
-	f = m.formula
-	df_rexpr = string("data.frame(", 
-		join(map(names(data)) do var
-			string(var,"=c(",join(data[!,var],","),")")
-		end,","),
-	")")
-	vam_repxr = string(replace(string(f.args[2]),"(" => "", ")" => ""), " ~ (", replace(string(f.args[3]),"FamilyModel" => ""), ")")
-	[df_rexpr, vam_repxr]
-end
 mutable struct ModelTest
 	models::ModelDict
 	results::ModelDict
@@ -35,7 +23,7 @@ function insert!(modtest::ModelTest, models::Vararg{Pair{Symbol, ModelDict}})
 	for model in models
 		m = model.second
 		if !(:r in  keys(m))
-			m[:r] = rterms(m[:vam], m[:data])
+			m[:r] = VAM.rterms(m[:vam], m[:data])
 		end
 		modtest.models[model.first] = m
 	end
@@ -46,6 +34,15 @@ insert!(modtest,
 		:θ =>  [0.3,1.8,0.6],
 		:data => DataFrame(Temps=[3.36, 4.1],Type=[-1, 0]),
 		:vam => @vam(Temps & Type ~ (ARAInf(0.4) | Weibull(0.001,2.5))) #,
+		# :r => [
+		# 	"data.frame(Time=c(3.36, 4.1),Type=c(-1, 0))",
+		# 	"Time & Type ~ (ARAInf(0.4) | Weibull(0.001,2.5))"
+		# 	]
+	),
+	:WInf_Inf => Dict(
+		:θ =>  [0.3,1.8,0.3,0.8],
+		:data => DataFrame(Temps=[3.36, 4.1],Type=[-1, 0]),
+		:vam => @vam(Temps & Type ~ (ARAInf(0.4) | Weibull(0.001,2.5)) & (ARAInf(0.5))) #,
 		# :r => [
 		# 	"data.frame(Time=c(3.36, 4.1),Type=c(-1, 0))",
 		# 	"Time & Type ~ (ARAInf(0.4) | Weibull(0.001,2.5))"
@@ -101,7 +98,7 @@ insert!(modtest,
 
 )
 
-modtest.models[:WInf][:r]
+modtest.models[:WInf][:r][2]
 
 
 function update!(modtest::ModelTest, key::Symbol)
@@ -163,10 +160,11 @@ end
 
 
 #empty!(modtest)
-update!(modtest, :WInf)
+update!(modtest, :WInf_Inf)
 update!(modtest)
 test(modtest)
 
-modtest.results[:WInf2][:resJL][:dC] .- modtest.results[:WInf2][:resR][:dC]
+modtest.results[:W1_bis][:resJL]
+modtest.results[:WInf_bis][:resJL]
 # string(modtest.models[:W1][:vam].formula)
 # rterms(modtest.models[:W1][:vam], DataFrame(Temps=[3.36, 4.1],Type=[-1, 0]))
