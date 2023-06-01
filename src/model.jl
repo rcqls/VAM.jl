@@ -50,6 +50,9 @@ mutable struct Model <: AbstractModel
 	params_cov::Vector{Float64}
 	sum_cov::Float64 #to save the computation
 
+	# Formula
+	formula::Expr
+	
 	Model() = new()
 end
 

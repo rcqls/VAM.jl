@@ -7,6 +7,7 @@
 
 function parse_model(ex_f::Expr)
     m = Model()
+    m.formula = ex_f
     if Meta.isexpr(ex_f, :call)
         ex_m = ex_f
         varnames = ["Time", "Type"] # default names
