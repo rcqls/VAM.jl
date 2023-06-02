@@ -10,6 +10,8 @@ nb_params(m::ARA1) = 1
 mutable struct ARAInf <: AbstractMaintenanceModel 
 	ρ::Float64
 end
+
+ARA∞(ρ::Float64) = ARAInf(ρ)
 params(m::ARAInf)::Vector{Float64} = [m.ρ]
 params!(m::ARAInf, p::Vector{Float64}) = begin;m.ρ = p[1]; nothing; end
 nb_params(m::ARAInf) = 1

@@ -173,6 +173,7 @@ end
 function update_maintenance!(m::Model, id_mod::Int; gradient::Bool=false, hessian::Bool=false)
 	# id_params is used inside update! for gradient and hessian
 	m.id_params = m.id_params_list[1 + id_mod]
+	# println("up maint $id_mod $(m.id_params)")
 	update!(m.models[1 + id_mod], m; gradient=gradient, hessian=hessian)
 	m.id_mod = id_mod
 end
@@ -367,6 +368,6 @@ function rterms(m::Model, data::DataFrame)
 		# CM only
 		model_str = string("(",f.args[3],")")
 	end
-	vam_repxr = string(vars_str, " ~ ", replace( model_str  ,"FamilyModel" => ""))
+	vam_repxr = replace(string(vars_str, " ~ ", replace( model_str  ,"FamilyModel" => "")),"∞" => "Inf")
 	[df_rexpr, vam_repxr]
 end
