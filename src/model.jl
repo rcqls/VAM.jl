@@ -200,8 +200,10 @@ function data!(m::Model,data::Union{DataFrame,Vector{DataFrame}})
 				m.nb_system = size(m.data[1],2) == 3 ? maximum(m.data[1][!,1]) : 1
 			end
 		elseif size(data,2) == 2
-			push!(m.data, vcat(DataFrame(time=0, type=1),data))
-			rename!(m.data,m.varnames)
+			df = vcat(DataFrame(time=0, type=1),data)
+			rename!(df,m.varnames)
+			push!(m.data, df)
+			
 			m.nb_system = 1
 		elseif size(data,2) == 3
 			m.nb_system=maximum(data[!,1])

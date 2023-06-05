@@ -1,5 +1,7 @@
-function mle(model::Model, params::Vector{Float64},  data::DataFrame; fixed::Union{Vector{Int},Vector{Bool}} = [1], method = Newton())
+function mle(model::Model, θ::Vector{Float64},  data::DataFrame; fixed::Union{Vector{Int},Vector{Bool}} = Bool[], method = Newton())
     m = MLE(model, data)
+    # Apply profile likelihood ony when α (at index 1) is not fixed
+    profile = !(1 in fixed)
     # TODO: check boundary for fixed
     if fixed isa Vector{Bool}
         res = Int[]
@@ -10,44 +12,50 @@ function mle(model::Model, params::Vector{Float64},  data::DataFrame; fixed::Uni
         end
         fixed = res
     end
-    unfixed = setdiff(1:length(params),fixed)
-    p = params[unfixed]
-    function f(pars)
-        params[unfixed] = pars
-        -contrast(m, params, alpha_fixed = 1 in fixed)
+    unfixed = setdiff(1:length(θ),fixed)
+    p = θ[unfixed]
+    function f(θ′)
+        θ[unfixed] = θ′
+        -contrast(m, θ, profile = profile)
     end
-    function g!(storage, pars)
-        params[unfixed] = pars
-        storage .= -gradient(m, params, alpha_fixed=1 in fixed)[unfixed]
+    function g!(storage, θ′)
+        θ[unfixed] = θ′
+        dlnL = gradient(m, θ, profile=profile)
+        storage .= -dlnL[unfixed]
     end
     res = nothing
     if method isa Optim.FirstOrderOptimizer
         res = optimize(f, g!, p, method=method)
     elseif method isa Optim.SecondOrderOptimizer
-        function h!(storage, pars)
-            params[unfixed] = pars
-            storage .= -hessian(m, params, alpha_fixed=1 in fixed)[unfixed, unfixed]
+        function h!(storage, θ′)
+            θ[unfixed] = θ′
+            storage .= -hessian(m, θ, profile=profile)[unfixed, unfixed]
         end
         res = optimize(f, g!, h!, p, method=method)
     end
-    p = params
+    p = θ
     p[unfixed] = Optim.minimizer(res)
-    return (params = p, optim = res, fixed = fixed)
+    return (θ = params(model), optim = res, fixed = fixed)
 end
 
-function contrast(model::Model, params::Vector{Float64}, data::DataFrame; alpha_fixed::Bool=false)::Float64
+function mle(model::Model, data::DataFrame; fixed::Union{Vector{Int},Vector{Bool}} = Bool[], method = Newton())
+    θ = params(model)
+    mle(model, θ, data; fixed= fixed, method=method)
+end
+
+function contrast(model::Model, θ::Vector{Float64}, data::DataFrame; profile::Bool=true)::Float64
         m = MLE(model, data)
-        return contrast(m, params, alpha_fixed = alpha_fixed)
+        return contrast(m, θ, profile = profile)
 end
 
-function gradient(model::Model, params::Vector{Float64}, data::DataFrame; alpha_fixed::Bool=false)::Vector{Float64}
+function gradient(model::Model, θ::Vector{Float64}, data::DataFrame; profile::Bool=true)::Vector{Float64}
     m = MLE(model, data)
-    return gradient(m, params, alpha_fixed = alpha_fixed)
+    return gradient(m, θ, profile = profile)
 end
 
-function hessian(model::Model, params::Vector{Float64}, data::DataFrame; alpha_fixed::Bool=false)::Matrix{Float64}
+function hessian(model::Model, θ::Vector{Float64}, data::DataFrame; profile::Bool=true)::Matrix{Float64}
     m = MLE(model, data)
-    return hessian(m, params, alpha_fixed = alpha_fixed)
+    return hessian(m, θ, profile = profile)
 end
 
 mutable struct MLE
@@ -67,6 +75,8 @@ function MLE(model::Model, data::DataFrame)::MLE
     left_censors!(mle, Int[])
     return mle
 end
+
+params(m::MLE) = params(m.model)
 
 ## TODO: deal with left_censors
 function left_censors!(m::MLE, left_censors::Vector{Int})
@@ -112,15 +122,15 @@ function init_mle(mle::MLE; deriv::Bool=false)
     end
 end
 
-function contrast(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Float64
+function contrast(mle::MLE, θ::Vector{Float64}; profile::Bool=true)::Float64
     res = 0
-    alpha = param[1] #;//save current value of alpha
+    α = θ[1] #;//save current value of alpha
 
-    param[1] = 1 #//Rmk: alpha replaces param[0] => a bit weird!
+    θ[1] = 1 #//Rmk: alpha replaces θ[0] => a bit weird!
 
     init!(mle.comp)
 
-    params!(mle.model,param);
+    params!(mle.model,θ);
     # //printf("System %d\n",1);
     select_data(mle.model, 1)
     if mle.model.nb_params_cov > 0 
@@ -144,20 +154,20 @@ function contrast(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Fl
     # //DEBUG: println("alpha=$alpha,S0=$(mle.comp.S0),S1=$(mle.comp.S1),S2=$(mle.comp.S2),S3=$(mle.comp.S3),S4=$(mle.comp.S4)")
     # //printf("params=(%lf,%lf)\n",model.params_cov[0],model.params_cov[1]);
     # // log-likelihood (with constant +S0*(log(S0)-1))
-    if !alpha_fixed
-        param[1] = mle.comp.S0 / mle.comp.S1
+    if profile
+        θ[1] = mle.comp.S0 / mle.comp.S1
         res = -log(mle.comp.S1) * mle.comp.S0 + mle.comp.S2 +  mle.comp.S0 * (log( mle.comp.S0) - 1) +  mle.comp.S3;
-        params!(mle.model, param) #//also memorize the current value for alpha which is not 1 in fact
+        params!(mle.model, θ) #//also memorize the current value for alpha which is not 1 in fact
     else
-        param[1] = alpha
-        res = log(alpha) * mle.comp.S0 + mle.comp.S2 - alpha * mle.comp.S1 + mle.comp.S3
-        params!(mle.model, param) #//also memorize the current value for alpha which is not 1 in fact
+        θ[1] = α
+        res = log(α) * mle.comp.S0 + mle.comp.S2 - α * mle.comp.S1 + mle.comp.S3
+        params!(mle.model, θ) #//also memorize the current value for alpha which is not 1 in fact
     end
     if mle.model.nb_params_cov > 0 
         res += mle.comp.S4
     end
 
-    param[1] = alpha #//LD:changed for bayesian
+    θ[1] = α #//LD:changed for bayesian
     return res
 end
 
@@ -205,13 +215,13 @@ function contrast_update_S(mle::MLE)
     #//printf("Conclusion : mle.comp.S1=%f, S2=%f, S0=%f, S4=%f\n",model.comp.S1,model.comp.S2,model.comp.S0,model.comp.S4);
 end
 
-function gradient(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Vector{Float64}
+function gradient(mle::MLE, θ::Vector{Float64}; profile::Bool=true)::Vector{Float64}
     res = zeros(mle.model.nb_params_family + mle.model.nb_params_maintenance + mle.model.nb_params_cov)
-    alpha=param[1] #save current value of alpha
+    α=θ[1] #save current value of alpha
 
-    param[1]=1
+    θ[1]=1
     init!(mle.comp, deriv = true)
-    params!(mle.model, param)
+    params!(mle.model, θ)
     select_data(mle.model, 1)
     if mle.model.nb_params_cov > 0 
         select_current_system(mle.model, 1, true)
@@ -230,29 +240,29 @@ function gradient(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Ve
         end
     end
     # compute gradient
-    param[1] = alpha_fixed ? alpha : mle.comp.S0 / mle.comp.S1
+    θ[1] = !profile ? α : mle.comp.S0 / mle.comp.S1
 
-    params!(mle.model, param) # also memorize the current value for alpha which is not 1 in fact
+    params!(mle.model, θ) # also memorize the current value for alpha which is not 1 in fact
 
-    res[1] = alpha_fixed ? mle.comp.S0/alpha - mle.comp.S1 : 0
+    res[1] = !profile ? mle.comp.S0/α - mle.comp.S1 : 0
     
     np = 1
     for i in 1:(mle.model.nb_params_family - 1)
-        res[i + np] = -mle.comp.dS1[i] * param[1] + mle.comp.dS2[i]
+        res[i + np] = -mle.comp.dS1[i] * θ[1] + mle.comp.dS2[i]
     end
     np += mle.model.nb_params_family - 1
     if mle.model.nb_params_maintenance > 0
         for i in 1:mle.model.nb_params_maintenance
-            res[i + np] = -mle.comp.dS1[i + np - 1] * param[1] + mle.comp.dS2[i + np - 1] + mle.comp.dS3[i]
+            res[i + np] = -mle.comp.dS1[i + np - 1] * θ[1] + mle.comp.dS2[i + np - 1] + mle.comp.dS3[i]
         end
     end
     np += mle.model.nb_params_maintenance
     if mle.model.nb_params_cov > 0
         for i in 1:model.nb_params_cov
-            res[i + np] = -mle.comp.dS1[i + np - 1] * param[1] + mle.comp.dS4[i]
+            res[i + np] = -mle.comp.dS1[i + np - 1] * θ[1] + mle.comp.dS4[i]
         end
     end
-    param[1] = alpha ## BIZARRE!
+    θ[1] = α ## BIZARRE!
     return res
 end
 
@@ -330,13 +340,13 @@ function gradient_update_dS_covariate(mle::MLE, i::Int, ii::Int)
     mle.comp.dS4[ii] += mle.model.comp.S0 * cov
 end
 
-function hessian(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Matrix{Float64}
+function hessian(mle::MLE, θ::Vector{Float64}; profile::Bool=true)::Matrix{Float64}
     res = zeros(mle.model.nb_params_family + mle.model.nb_params_maintenance + mle.model.nb_params_cov, mle.model.nb_params_family + mle.model.nb_params_maintenance + mle.model.nb_params_cov)
-    alpha=param[1] #save current value of alpha
+    α=θ[1] #save current value of alpha
 
-    param[1]=1
+    θ[1]=1
     init!(mle.comp, deriv = true)
-    params!(mle.model, param)
+    params!(mle.model, θ)
     select_data(mle.model, 1)
     if mle.model.nb_params_cov > 0 
         select_current_system(mle.model, 1, true)
@@ -358,7 +368,7 @@ function hessian(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Mat
     # println("dS1=$(mle.comp.dS1) dS2=$(mle.comp.dS2) ")
     # println("d2S1=$(mle.comp.d2S1) d2S2=$(mle.comp.d2S3) d2S2=$(mle.comp.d2S3) ")
     # //compute hessian
-    if !alpha_fixed
+    if profile
         res[1,1] = 0
         for i in 1:(mle.model.nb_params_family - 1)
             ii = ind_ij(i, i)
@@ -401,20 +411,20 @@ function hessian(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Mat
                 res[j + 1,i + 1] = res[i + 1,j + 1]
             end
         end
-        param[1] = mle.comp.S0 / mle.comp.S1
-        params!(mle.model, param) #;//also memorize the current value for alpha which is not 1 in fact
+        θ[1] = mle.comp.S0 / mle.comp.S1
+        params!(mle.model, θ) #;//also memorize the current value for alpha which is not 1 in fact
     else
 
-        res[1, 1] = -mle.comp.S0 / alpha^2
+        res[1, 1] = -mle.comp.S0 / α^2
         for i in 1:(mle.model.nb_params_family-1)
             ii = ind_ij(i, i)
             res[1,i + 1] = -mle.comp.dS1[i]
             res[i + 1,1] = -mle.comp.dS1[i]
-            res[i + 1,i + 1] = mle.comp.d2S2[ii] - alpha * mle.comp.d2S1[ii]
+            res[i + 1,i + 1] = mle.comp.d2S2[ii] - α * mle.comp.d2S1[ii]
             for j in 1:i
                 ij = ind_ij(i, j)
                 #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-                res[i + 1,j + 1] = mle.comp.d2S2[ij] - alpha * mle.comp.d2S1[ij]
+                res[i + 1,j + 1] = mle.comp.d2S2[ij] - α * mle.comp.d2S1[ij]
                 res[j + 1,i + 1] = res[i + 1,j + 1]
             end
         end
@@ -422,17 +432,17 @@ function hessian(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Mat
             ii = ind_ij(i, i)
             res[1, i + 1] = -mle.comp.dS1[i]
             res[i + 1, 1] = -mle.comp.dS1[i]
-            res[i + 1, i + 1] = mle.comp.d2S2[ii] - alpha * mle.comp.d2S1[ii] + mle.comp.d2S3[ind_ij(i-(mle.model.nb_params_family-1), i - (mle.model.nb_params_family - 1))]
+            res[i + 1, i + 1] = mle.comp.d2S2[ii] - α * mle.comp.d2S1[ii] + mle.comp.d2S3[ind_ij(i-(mle.model.nb_params_family-1), i - (mle.model.nb_params_family - 1))]
             for j in 1:(mle.model.nb_params_family - 1)
                 ij = ind_ij(i, j)
                 #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-                res[i + 1, j + 1] = mle.comp.d2S2[ij] - alpha * mle.comp.d2S1[ij]
+                res[i + 1, j + 1] = mle.comp.d2S2[ij] - α * mle.comp.d2S1[ij]
                 res[j + 1, i + 1] = res[i + 1, j + 1]
             end
             for j in mle.model.nb_params_family:(i - 1)
                 ij = ind_ij(i, j)
                 #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
-                res[i + 1, j + 1] = mle.comp.d2S2[ij] - alpha * mle.comp.d2S1[ij] + mle.comp.d2S3[ind_ij(i - (mle.model.nb_params_family - 1), j - (mle.model.nb_params_family - 1))]
+                res[i + 1, j + 1] = mle.comp.d2S2[ij] - α * mle.comp.d2S1[ij] + mle.comp.d2S3[ind_ij(i - (mle.model.nb_params_family - 1), j - (mle.model.nb_params_family - 1))]
                 res[j + 1, i + 1] = res[i + 1, j + 1]
             end
         end
@@ -440,18 +450,18 @@ function hessian(mle::MLE, param::Vector{Float64}; alpha_fixed::Bool=false)::Mat
             ii = ind_ij(i, i)
             res[1, i + 1] = -mle.comp.dS1[i]
             res[i + 1, 1] = -mle.comp.dS1[i]
-            res[i + 1, i + 1] = -alpha * mle.comp.d2S1[ii]
+            res[i + 1, i + 1] = -α * mle.comp.d2S1[ii]
             for j in 1:i
                 ij = ind_ij(i, j)
-                res[i + 1, j + 1] = -alpha * mle.comp.d2S1[ij]
+                res[i + 1, j + 1] = -α * mle.comp.d2S1[ij]
                 res[j + 1, i + 1] = res[i + 1 , j + 1]
             end
         end
-        param[1] = alpha
-        params!(mle.model, param) #also memorize the current value for alpha which is not 1 in fact
+        θ[1] = α
+        params!(mle.model, θ) #also memorize the current value for alpha which is not 1 in fact
 
     end
-    param[1] = alpha # LD:changed for bayesian
+    θ[1] = α # LD:changed for bayesian
     return res
 end
 
@@ -571,11 +581,10 @@ function hessian_update_current(mle::MLE)
     end
 end
 
-function alpha_est(mle::MLE, param::Vector{Float64})
+function α_est(mle::MLE, param::Vector{Float64})
     contrast(mle, param) #//To compute mle.comp.S1 and S0
     return mle.comp.S0 / mle.comp.S1
 end
-
 
 #     //delegate from model cache!
 #     List get_virtual_age_infos(double by,double from, double to) {

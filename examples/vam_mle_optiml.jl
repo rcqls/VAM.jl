@@ -1,11 +1,3 @@
-using VAM
-using DataFrames
-using Optim
-using Random
-using FreqTables
-using CSV
-using RData
-using RCall
 
 ## RCpp: sim.vam(  ~ (ARA1(.9) | Weibull(.001,2.5)) & (ARAInf(.4) | AtIntensity(0.2)))
 m = @vam(Temps & Type ~ (ARA1(.9) | Weibull(0.001,2.5)) & (ARAInf(.7) | AtIntensity(0.2)))
@@ -29,9 +21,9 @@ p = params(m)
 
 R"""
 require(VAM)
-set.seed(3)
+#set.seed(3)
 simCMPM<-sim.vam( time & type ~ (ARA1(.9) | Weibull(.001,2.5)) & (ARAInf(.7) | AtIntensity(0.2)))
-df<-simulate(simCMPM, Size>=10)
+df<-simulate(simCMPM, Size>=100)
 """
 
 @rget df
@@ -53,3 +45,4 @@ hessian(m, p, df; alpha_fixed = true)
 contrast(m, p, df)
 gradient(m, p, df)
 hessian(m, p, df)
+
