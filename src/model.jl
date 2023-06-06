@@ -124,15 +124,17 @@ function inc!(m::Model)
 end
 
 nb_params(m::Model)::Int = m.nb_params_family + m.nb_params_maintenance + n.nb_params_cov
+
 params(m::Model)::Vector{Float64} = cat(params(m.family),(map(m.models) do mm;params(mm); end)...,dims=1)
-function params!(m::Model, p::Vector{Float64})
+
+function params!(m::Model, θ::Vector{Float64})
 	from, to = 1, nb_params(m.family)
-	params!(m.family,p[from:to])
+	params!(m.family,θ[from:to])
 	for mm in m.models
 		if nb_params(mm) > 0
 			from = to + 1
 			to = from + nb_params(mm) - 1
-			params!(mm, p[from:to])
+			params!(mm, θ[from:to])
 		end
 	end
 end
@@ -191,7 +193,7 @@ function data!(m::Model,data::Union{DataFrame,Vector{DataFrame}})
 				prepend!(data2[!,1], 0)
 				prepend!(data2[!,2], 1)
 				push!(m.data, data2)
-				rename
+				#rename
 			else # multi-system with size(data2, 2) ==3
 				systs = sort(unique(data2[1]))
 				for i=systs

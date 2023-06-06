@@ -76,7 +76,8 @@ function MLE(model::Model, data::DataFrame)::MLE
     return mle
 end
 
-params(m::MLE) = params(m.model)
+params(m::MLE)::Vector{Float64} = params(m.model)
+params!(m::MLE, θ::Vector{Float64}) = params!(m.model, θ)
 
 ## TODO: deal with left_censors
 function left_censors!(m::MLE, left_censors::Vector{Int})
@@ -581,7 +582,7 @@ function hessian_update_current(mle::MLE)
     end
 end
 
-function α_est(mle::MLE, param::Vector{Float64})
+function αEst(mle::MLE, param::Vector{Float64})
     contrast(mle, param) #//To compute mle.comp.S1 and S0
     return mle.comp.S0 / mle.comp.S1
 end
