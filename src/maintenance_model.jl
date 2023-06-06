@@ -50,6 +50,9 @@ nb_params(m::QAGAN) = 1
 mutable struct QR <: AbstractMaintenanceModel
     ρ::Float64
 end
+params(m::QR)::Vector{Float64} = [m.ρ]
+params!(m::QR, p::Vector{Float64}) = begin;m.ρ = p[1]; nothing; end
+nb_params(m::QR) = 1
 
 abstract type GQRMaintenanceModel <: AbstractMaintenanceModel end
 function init!(mm::GQRMaintenanceModel)
@@ -61,7 +64,7 @@ mutable struct GQR <: GQRMaintenanceModel
     f::Function
     K::Float64
 end
-GQR(ρ::Float64, f::Function) = GQR(ρ, f, 0)
+GQR(ρ::Float64, f::Function=identity) = GQR(ρ, f, 0)
 params(m::GQR)::Vector{Float64} = [m.ρ]
 params!(m::GQR, p::Vector{Float64}) = begin;m.ρ = p[1]; nothing; end
 nb_params(m::GQR) = 1
@@ -349,7 +352,7 @@ function update!(m::ABAO, model::AbstractModel;gradient::Bool=false,hessian::Boo
         if nk > 1
             for k in (nk - 1):-1:1
                 for i in 1:npm 
-                    model.dVR_prec[k * npm + i] = model.dVR_prec[(k - 1) * npm + i]
+                    model.dVR_prec[(k - 1) * npm + i] = model.dVR_prec[(k - 1) * npm + i]
                 end
             end
         end
@@ -452,7 +455,7 @@ function update!(m::QAGAN, model::AbstractModel;gradient::Bool=false,hessian::Bo
                 ij = ind_ij(i, j)
                 model.d2Vright[ij] = 0
                 for k in 1:nk
-                    model.d2VR_prec[k * ind_nb(npm) + ij] = 0
+                    model.d2VR_prec[(k - 1) * ind_nb(npm) + ij] = 0
                 end
             end
         end
@@ -461,7 +464,7 @@ function update!(m::QAGAN, model::AbstractModel;gradient::Bool=false,hessian::Bo
         for i in 1:npm
             model.dVright[i] = 0
             for k in 1:nk
-                model.dVR_prec[k * npm + i] = 0
+                model.dVR_prec[(k - 1) * npm + i] = 0
             end
         end
     end
@@ -484,7 +487,7 @@ function update!(m::QR, model::AbstractModel;gradient::Bool=false,hessian::Bool=
                 model.d2A[ij] = m.ρ * model.d2A[ij]
                 model.d2Vright[ij] = 0
                 for k in 1:nk
-                    model.d2VR_prec[k * ind_nb(npm) + ij] = 0
+                    model.d2VR_prec[(k - 1) * ind_nb(npm) + ij] = 0
                 end
             end
         end
@@ -504,7 +507,7 @@ function update!(m::QR, model::AbstractModel;gradient::Bool=false,hessian::Bool=
             model.dA[i] = m.ρ *  model.dA[i]
             model.dVright[i] = 0
             for k in 1:nk
-                model.dVR_prec[k * npm + i] = 0
+                model.dVR_prec[(k - 1) * npm + i] = 0
             end
         end
         model.dA[model.id_params] = model.dA[model.id_params] +  model.A
@@ -522,9 +525,9 @@ function update!(m::GQR, model::AbstractModel;gradient::Bool=false,hessian::Bool
     if nk > model.mu 
         nk = model.mu
     end
-    K += 1
+    m.K += 1
     npm = model.nb_params_maintenance
-    δ = (m.f(K) - m.f(K-1))
+    δ = (m.f(m.K) - m.f(m.K-1))
     if hessian
         for i in 1:npm
              for j in 1:i
@@ -533,7 +536,7 @@ function update!(m::GQR, model::AbstractModel;gradient::Bool=false,hessian::Bool
                 model.d2A[ij] = m.ρ^δ  * model.d2A[ij]
                 model.d2Vright[ij] = 0
                 for k in 1:nk
-                    model.d2VR_prec[k * ind_nb(npm) + ij] = 0
+                    model.d2VR_prec[(k - 1) * ind_nb(npm) + ij] = 0
                 end
             end
         end
@@ -559,7 +562,7 @@ function update!(m::GQR, model::AbstractModel;gradient::Bool=false,hessian::Bool
     end
     model.A = m.ρ^δ * model.A
     model.Vright=0
-    for k in 0:nk
+    for k in 1:nk
         model.VR_prec[k]=0
     end
 end
