@@ -103,10 +103,14 @@ function parse_cm!(m::AbstractModel,ex_cm::Expr)
 end
 
 function add_maintenance_model!(m::AbstractModel,ex_mm::Expr)
-    if Meta.isexpr(ex_mm.args[end],:call) && ex_mm.args[end].args[1] == :|
-        ## ex: GQR(...|f) -> GQR(...,f)
+    pipe_index = findall(e -> Meta.isexpr(e,:call) && e.args[1] == :|, ex_mm.args)
+    if !isempty(pipe_index) && length(pipe_index) == 1
+    # OLD: if Meta.isexpr(ex_mm.args[end],:call) && ex_mm.args[end].args[1] == :|
+        # OLD: ex: GQR(...|f) -> GQR(...,f) but not GQR_ARAm(...|3,f) -> GQR_ARAm(...,3,f)
         ex = copy(ex_mm) # Do not change original ex_mm
-        ex.args = vcat(ex.args[1:end-1],ex.args[end].args[2:end])
+        # OLD: ex.args = vcat(ex.args[1:end-1],ex.args[end].args[2:end])
+        i = pipe_index[1]
+        ex.args = vcat(ex.args[1:i-1],ex.args[i].args[2:end],ex.args[i+1:end])
         push!(m.models,eval(ex))
     else
         push!(m.models,eval(ex_mm))
