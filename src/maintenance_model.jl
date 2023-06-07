@@ -41,11 +41,10 @@ params(m::AGAP)::Vector{Float64} = []
 params!(m::AGAP, p::Vector{Float64}) = nothing
 nb_params(m::AGAP) = 0
 mutable struct QAGAN <: AbstractMaintenanceModel
-    ρ::Float64
 end
-params(m::QAGAN)::Vector{Float64} = [m.ρ]
-params!(m::QAGAN, p::Vector{Float64}) = begin;m.ρ = p[1]; nothing; end
-nb_params(m::QAGAN) = 1
+params(m::QAGAN)::Vector{Float64} = []
+params!(m::QAGAN, p::Vector{Float64}) = nothing
+nb_params(m::QAGAN) = 0
 
 mutable struct QR <: AbstractMaintenanceModel
     ρ::Float64
@@ -64,7 +63,13 @@ mutable struct GQR <: GQRMaintenanceModel
     f::Function
     K::Float64
 end
-GQR(ρ::Float64, f::Function=identity) = GQR(ρ, f, 0)
+function GQR(ρ::Float64, f::Function=identity) 
+    m = GQR(ρ, f, 0)
+    if m.f == log
+        m.f = x -> log(x + 1)
+    end
+    return m
+end
 params(m::GQR)::Vector{Float64} = [m.ρ]
 params!(m::GQR, p::Vector{Float64}) = begin;m.ρ = p[1]; nothing; end
 nb_params(m::GQR) = 1
@@ -285,6 +290,206 @@ function update!(m::ARAInf, model::AbstractModel; gradient::Bool=false, hessian:
 end
 
 
+function update!(m::ARAm, model::AbstractModel;gradient::Bool=false,hessian::Bool=false)
+    inc!(model) #model.k += 1;
+
+    nk = model.k
+    if nk > model.mu 
+        nk = model.mu
+    end
+    nk2 = nk - 1
+    if nk > m.m - 1
+        nk2 = m.m - 1
+    end
+    # RMK: nk is 1 more than RCpp but nk2 is the same.
+    # println("m=$(m.m) mu=$(model.mu) k=$(model.k) nk=$nk, nk2=$nk2")
+
+    # //printf("ARAinf k=%d,max_mem=%d, nk=%d\n",model.k,model.max_mem,nk);
+    npm = model.nb_params_maintenance
+    if hessian
+        npm2 = ind_nb(npm)
+        if nk>1 && nk > nk2
+            for k in (nk - 1):-1:nk2
+                for i in 1:npm
+                    for j in 1:i
+                        ij = ind_ij(i, j)
+                        model.d2VR_prec[k * npm2 + ij] = model.d2VR_prec[(k - 1) * npm2 + ij]
+                    end
+                end
+            end
+        end
+
+        if (model.k > m.m) && (nk2 > 0)
+            if nk > nk2
+                for i in 1:npm
+                     for j in 1:i
+                        ij = ind_ij(i, j)
+                        model.d2Vright[ij] -= m.ρ * model.d2VR_prec[(nk2-1) * npm2 + ij]
+                        model.d2VR_prec[nk2 * npm2 + ij] = (1-m.ρ) * model.d2VR_prec[(nk2-1) * npm2 + ij]
+                    end
+                end
+                for j in 1:model.id_params
+                    jj = ind_ij(model.id_params, j)
+                    model.d2Vright[jj] -= model.dVR_prec[(nk2-1) * npm + j]
+                    model.d2VR_prec[nk2 * npm2 + jj] -= model.dVR_prec[(nk2-1) * npm + j]
+                end
+                for i in (model.id_params + 1):npm
+                    ii = ind_ij(i, model.id_params)
+                    model.d2Vright[ii] -= model.dVR_prec[(nk2 - 1) * npm + i]
+                    model.d2VR_prec[nk2 * npm2 + ii] -= model.dVR_prec[(nk2-1) * npm + i]
+                end
+            else
+                for i in 1:npm
+                     for j in 1:i
+                        ij = ind_ij(i, j) 
+                        model.d2Vright[ij] -= m.ρ * model.d2VR_prec[(nk2-1) * npm2 + ij]
+                    end
+                end
+                for j in 1:model.id_params 
+                    model.d2Vright[ind_ij(model.id_params, j)] -= model.dVR_prec[(nk2 - 1) * npm + j]
+                end
+                for i in (model.id_params + 1):npm  
+                    model.d2Vright[ind_ij(i, model.id_params)] -= model.dVR_prec[(nk2 - 1) * npm + i]
+                end
+            end
+        end
+
+        # if nk2 > 1
+            for k in (nk2 - 1):-1:1
+                for i in 1:npm
+                    for j in 1:i
+                        ij = ind_ij(i, j)
+                        model.d2Vright[ij] -= m.ρ * model.d2VR_prec[(k - 1) * npm2 + ij]
+                        model.d2VR_prec[k * npm2 + ij] = (1 - m.ρ) * model.d2VR_prec[(k - 1) * npm2 + ij]
+                    end
+                end
+                for j in 1:model.id_params
+                    jj = ind_ij(model.id_params, j)
+                    model.d2Vright[jj] -= model.dVR_prec[(k - 1) * npm + j]
+                    model.d2VR_prec[k * npm2 + jj] -= model.dVR_prec[(k - 1) * npm + j]
+                end
+                for i in (model.id_params + 1):npm
+                    ii = ind_ij(i, model.id_params)
+                    model.d2Vright[ii] -= model.dVR_prec[(k - 1) * npm + i]
+                    model.d2VR_prec[k * npm2 + ii] -= model.dVR_prec[(k - 1) * npm + i]
+                end
+            end
+        # end
+        if nk > 0
+            for i in 1:npm
+                 for j in 1:i
+                    ij = ind_ij(i, j)
+                    prov = (1 - m.ρ) * model.d2A[ij] * model.Δt
+                    model.d2VR_prec[ij] = prov
+                    model.d2Vright[ij] += prov
+                end
+            end
+            for j in 1:model.id_params
+                jj = ind_ij(model.id_params, j)
+                prov = model.dA[j] * model.Δt
+                model.d2VR_prec[jj] -= prov
+                model.d2Vright[jj] -= prov
+            end
+            for i in (model.id_params + 1):npm
+                ii = ind_ij(i, model.id_params)
+                prov = model.dA[i]*model.Δt
+                model.d2VR_prec[ii] -= prov
+                model.d2Vright[ii] -= prov
+            end
+        else
+           for i in 1:npm
+                 for j in 1:i
+                    ij = ind_ij(i, j)
+                    model.d2Vright[ij] += (1 - m.ρ) * model.d2A[ij] * model.Δt
+                end
+            end
+            for j in 1:model.id_params
+                model.d2Vright[ind_ij(model.id_params, j)] -= model.dA[j] * model.Δt
+            end
+            for i in (model.id_params + 1):npm
+                model.d2Vright[ind_ij(i, model.id_params)] -= model.dA[i] * model.Δt
+            end
+        end
+    end
+    if gradient || hessian
+        if nk > 1
+            for k in (nk - 1):-1:nk2
+                for i in 1:npm
+                    model.dVR_prec[k * npm + i] = model.dVR_prec[(k - 1) * npm + i]
+                end
+            end
+        end
+        if model.k > m.m && nk2 > 0 
+            if nk > nk2
+                for i in 1:npm
+                    model.dVright[i] -= m.ρ * model.dVR_prec[(nk2 - 1) * npm + i]
+                    model.dVR_prec[nk2 * npm + i] = (1 - m.ρ) * model.dVR_prec[(nk2 - 1) * npm + i]
+                end
+                model.dVR_prec[nk2 * npm + model.id_params] -= model.VR_prec[nk2]
+                model.dVright[model.id_params] -= model.VR_prec[nk2]
+            else
+                for i in 1:npm 
+                    model.dVright[i] -= m.ρ * model.dVR_prec[(nk2 - 1) * npm + i]
+                end
+                model.dVright[model.id_params] -= model.VR_prec[nk2 - 1]
+            end
+        end
+        # if nk2 > 1
+            for k in (nk2 - 1):-1:1
+                for i in 1:npm
+                    model.dVright[i] -= m.ρ * model.dVR_prec[(k - 1) * npm + i]
+                    model.dVR_prec[k * npm + i] = (1 - m.ρ) * model.dVR_prec[(k - 1) * npm + i]
+                end
+                model.dVR_prec[k * npm + model.id_params] -= model.VR_prec[k]
+                model.dVright[model.id_params] -= model.VR_prec[k]
+            end
+        # end
+        if nk > 0
+            for i in 1:npm
+                prov = (1 - m.ρ) * model.dA[i] * model.Δt
+                model.dVR_prec[i] = prov
+                model.dVright[i] += prov
+            end
+            prov = model.A * model.Δt
+            model.dVR_prec[model.id_params] -= prov
+            model.dVright[model.id_params] -=prov
+        else
+            for i in 1:npm
+                model.dVright[i] += (1 - m.ρ) * model.dA[i] * model.Δt
+            end
+            model.dVright[model.id_params] -= model.A * model.Δt
+        end
+    end
+    # //println("Avant nk=$nk, nk2=$nk2, VRprec[0]=%f, VRprec[1]=%f, VRprec[2]=%f\n",nk,nk2,model.VR_prec[0],model.VR_prec[1],model.VR_prec[2]); 
+    if nk > nk2 + 1
+        for k=(nk - 1):-1:(nk2 + 1)
+            model.VR_prec[k + 1]=model.VR_prec[k]
+        end
+    end
+    if model.k > m.m && nk2 > 0
+        if nk > nk2
+            model.Vright -= m.ρ * model.VR_prec[nk2]
+            model.VR_prec[nk2 + 1] = (1-m.ρ) * model.VR_prec[nk2]
+        else 
+            model.Vright -= m.ρ * model.VR_prec[nk2]
+        end
+    end
+    if nk2 > 1
+        for k in (nk2 - 1):-1:1
+            model.Vright -= m.ρ * model.VR_prec[k]
+            model.VR_prec[k + 1] = (1 - m.ρ) * model.VR_prec[k]
+        end
+    end
+    prov = (1 - m.ρ) * model.A * model.Δt
+    #//printf("Vright=%f, m.ρ=%f, A=%f, Tk=%f, Tk-1=%f\n",model.Vright,m.ρ,model.A,model.time[model.k],model.time[model.k - 1]);
+    if nk > 0 
+        model.VR_prec[1] = prov
+    end
+    model.Vright += prov
+    #//printf("Apres Vright=%f, nk=%i, nk2=%i, VRprec[0]=%f, VRprec[1]=%f, VRprec[2]=%f\n",model.Vright,nk,nk2,model.VR_prec[0],model.VR_prec[1],model.VR_prec[2]); 
+end
+
+
 function update!(m::AGAN, model::AbstractModel;gradient::Bool=false,hessian::Bool=false)
     inc!(model) #model.k += 1
     nk = model.k
@@ -427,7 +632,7 @@ function update!(m::AGAP, model::AbstractModel;gradient::Bool=false,hessian::Boo
         end
     end
     if nk > 0 
-        model.VR_prec[0] = 0
+        model.VR_prec[1] = 0
     end
 end
 
@@ -448,7 +653,7 @@ function update!(m::QAGAN, model::AbstractModel;gradient::Bool=false,hessian::Bo
         for i in 1:npm 
             model.dVright[i] = 0
             for k in 1:nk
-                model.dVR_prec[k * npm + i] = 0
+                model.dVR_prec[(k - 1) * npm + i] = 0
             end
              for j in 1:i
                 #//i and j(<=i) respectively correspond to the line and column indices of (inferior diagonal part of) the hessian matrice
@@ -528,6 +733,7 @@ function update!(m::GQR, model::AbstractModel;gradient::Bool=false,hessian::Bool
     m.K += 1
     npm = model.nb_params_maintenance
     δ = (m.f(m.K) - m.f(m.K-1))
+    # println("K=$(m.K) δ=$δ")
     if hessian
         for i in 1:npm
              for j in 1:i
@@ -556,7 +762,10 @@ function update!(m::GQR, model::AbstractModel;gradient::Bool=false,hessian::Bool
         for i in 1:npm
             model.dA[i] = m.ρ^δ * model.dA[i]
             model.dVright[i] = 0
-            fill!(model.dVR_prec, 0.0)
+            # fill!(model.dVR_prec, 0.0)
+            for k in 1:nk
+                model.dVR_prec[k] = 0.0
+            end
         end
         model.dA[model.id_params] = model.dA[model.id_params] + m.ρ^δ * δ / m.ρ * model.A
     end
@@ -807,203 +1016,6 @@ function update!(m::GQR_ARAInf, model::AbstractModel;gradient::Bool=false,hessia
         model.VR_prec[1] = (1 - m.ρ_ARA) * model.A * model.Δt
     end
     model.A = m.ρ_QR^δ * model.A
-end
-
-function update!(m::ARAm, model::AbstractModel;gradient::Bool=false,hessian::Bool=false)
-    inc!(model) #model.k += 1;
-
-    nk = model.k
-    if nk > model.mu 
-        nk = model.mu
-    end
-    nk2 = nk
-    if nk > m.m-1 
-        nk2 = m.m-1
-    end
-
-    # //printf("ARAinf k=%d,max_mem=%d, nk=%d\n",model.k,model.max_mem,nk);
-    npm = model.nb_params_maintenance
-    if hessian
-        npm2 = ind_nb(npm)
-        if nk > nk2
-            for k in (nk - 1):-1:nk2
-                for i in 1:npm
-                    for j in 1:i
-                        ij = ind_ij(i, j)
-                        model.d2VR_prec[k * npm2 + ij] = model.d2VR_prec[(k - 1) * npm2 + ij]
-                    end
-                end
-            end
-        end
-
-        if (model.k > m.m) && (nk2 > 0)
-            if nk > nk2
-                for i in 1:npm
-                     for j in 1:i
-                        ij = ind_ij(i, j)
-                        model.d2Vright[ij] -= m.ρ * model.d2VR_prec[(nk2-1) * npm2 + ij]
-                        model.d2VR_prec[nk2 * npm2 + ij] = (1-m.ρ) * model.d2VR_prec[(nk2-1) * npm2 + ij]
-                    end
-                end
-                for j in 1:model.id_params
-                    jj = ind_ij(model.id_params, j)
-                    model.d2Vright[jj] -= model.dVR_prec[(nk2-1) * npm + j]
-                    model.d2VR_prec[nk2 * npm2 + jj] -= model.dVR_prec[(nk2-1) * npm + j]
-                end
-                for i in (model.id_params + 1):npm
-                    ii = ind_ij(i, model.id_params)
-                    model.d2Vright[ii] -= model.dVR_prec[(nk2 - 1) * npm + i]
-                    model.d2VR_prec[nk2 * npm2 + ii] -= model.dVR_prec[(nk2-1) * npm + i]
-                end
-            else
-                for i in 1:npm
-                     for j in 1:i
-                        ij = ind_ij(i, j) 
-                        model.d2Vright[ij] -= m.ρ * model.d2VR_prec[(nk2-1) * nbd2 + ij]
-                    end
-                end
-                for j in 1:model.id_params 
-                    model.d2Vright[ind_ij(model.id_params, j)] -= model.dVR_prec[(nk2 - 1) * npm + j]
-                end
-                for i in (model.id_params + 1):npm  
-                    model.d2Vright[ind_ij(i, model.id_params)] -= model.dVR_prec[(nk2 - 1) * npm + i]
-                end
-            end
-        end
-
-        if nk2 > 1
-            for k in (nk2 - 1):-1:1
-                for i in 1:npm
-                    for j in 1:i
-                        ij = ind_ij(i, j)
-                        model.d2Vright[ij] -= m.ρ * model.d2VR_prec[(k - 1) * npm2 + ij]
-                        model.d2VR_prec[k * npm2 + ij] = (1 - m.ρ) * model.d2VR_prec[(k - 1) * npm2 + ij]
-                    end
-                end
-                for j in 1:model.id_params
-                    jj = ind_ij(model.id_params, j)
-                    model.d2Vright[jj] -= model.dVR_prec[(k - 1) * npm + j]
-                    model.d2VR_prec[k * npm2 + jj] -= model.dVR_prec[(k - 1) * npm + j]
-                end
-                for i in (model.id_params + 1):npm
-                    ii = ind_ij(i, model.id_params)
-                    model.d2Vright[ii] -= model.dVR_prec[(k - 1) * npm + i]
-                    model.d2VR_prec[k * npm2 + ii] -= model.dVR_prec[(k - 1) * npm + i]
-                end
-            end
-        end
-        if nk > 0
-            for i in 1:npm
-                 for j in 1:i
-                    ij = ind_ij(i, j)
-                    prov = (1 - m.ρ) * model.d2A[ij] * model.Δt
-                    model.d2VR_prec[ij] = prov
-                    model.d2Vright[ij] += prov
-                end
-            end
-            for j in 1:model.id_params
-                jj = ind_ij(model.id_params, j)
-                prov = model.dA[j] * model.Δt
-                model.d2VR_prec[jj] -= prov
-                model.d2Vright[jj] -= prov
-            end
-            for i in (model.id_params + 1):npm
-                ii = ind_ij(i, model.id_params)
-                prov = model.dA[i]*model.Δt
-                model.d2VR_prec[ii] -= prov
-                model.d2Vright[ii] -= prov
-            end
-        else
-           for i in 1:npm
-                 for j in 1:i
-                    ij = ind_ij(i, j)
-                    model.d2Vright[ij] += (1 - m.ρ) * model.d2A[ij] * model.Δt
-                end
-            end
-            for j in 1:model.id_params
-                model.d2Vright[ind_ij(model.id_params, j)] -= model.dA[j] * model.Δt
-            end
-            for i in (model.id_params + 1):npm
-                model.d2Vright[ind_ij(i, model.id_params)] -= model.dA[i] * model.Δt
-            end
-        end
-    end
-    if gradient || hessian
-        if nk > 1
-            for k in (nk - 1):-1:1
-                for i in 1:npm
-                    model.dVR_prec[k * npm + i] = model.dVR_prec[(k - 1) * npm + i]
-                end
-            end
-        end
-        if model.k > m.m && nk2 > 0 
-            if nk > nk2
-                for i in 1:npm
-                    model.dVright[i] -= m.ρ * model.dVR_prec[(nk2 - 1) * npm + i]
-                    model.dVR_prec[nk2 * npm + i] = (1 - m.ρ) * model.dVR_prec[nk2 * npm + i]
-                end
-                model.dVR_prec[nk2 * npm + model.id_params] -= model.VR_prec[nk2]
-                model.dVright[model.id_params] -= model.VR_prec[nk2]
-            else
-                for i in 1:npm 
-                    model.dVright[i] -= m.ρ * model.dVR_prec[(nk2 - 1) * npm + i]
-                end
-                model.dVright[model.id_params] -= model.VR_prec[nk2 - 1]
-            end
-        end
-        if nk2 > 1
-            for k in (nk2 - 1):-1:1
-                for i in 1:npm
-                    model.dVright[i] -= m.ρ * model.dVR_prec[(k - 1) * npm + i]
-                    model.dVR_prec[k * npm + i] = (1 - m.ρ) * model.dVR_prec[(k - 1) * npm + i]
-                end
-                model.dVR_prec[k * npm + model.id_params] -= model.VR_prec[k-1]
-                model.dVright[model.id_params] -= model.VR_prec[k-1]
-            end
-        end
-        if nk > 0
-            for i in 1:npm
-                prov = (1 - m.ρ) * model.dA[i] * model.Δt
-                model.dVR_prec[i] = prov
-                model.dVright[i] += prov
-            end
-            prov = model.A * model.Δt
-            model.dVR_prec[model.id_params] -= prov
-            model.dVright[model.id_params] -=prov
-        else
-            for i in 1:npm
-                model.dVright[i] += (1 - m.ρ) * model.dA[i] * model.Δt
-            end
-            model.dVright[model.id_params] -= model.A * model.Δt
-        end
-    end
-    # //printf("Avant nk=%i, nk2=%i, VRprec[0]=%f, VRprec[1]=%f, VRprec[2]=%f\n",nk,nk2,model.VR_prec[0],model.VR_prec[1],model.VR_prec[2]); 
-    if nk > nk2 + 1
-        for k=(nk - 1):-1:(nk2 + 1)
-            model.VR_prec[k + 1]=model.VR_prec[k]
-        end
-    end
-    if model.k > m.m && nk2 > 0
-        if nk > nk2
-            model.Vright -= m.ρ * model.VR_prec[nk2]
-            model.VR_prec[nk2 + 1] = (1-m.ρ) * model.VR_prec[nk2]
-        else 
-            model.Vright -= m.ρ * model.VR_prec[nk2]
-        end
-    end
-    if nk2 > 1
-        for k in (nk2 - 1):-1:1
-            model.Vright -= m.ρ * model.VR_prec[k]
-            model.VR_prec[k + 1] = (1 - m.ρ) * model.VR_prec[k]
-        end
-    end
-    prov = (1 - m.ρ) * model.A * model.Δt
-    #//printf("Vright=%f, m.ρ=%f, A=%f, Tk=%f, Tk-1=%f\n",model.Vright,m.ρ,model.A,model.time[model.k],model.time[model.k - 1]);
-    if nk > 0 
-        model.VR_prec[1] = prov
-    end
-    model.Vright += prov
-    #//printf("Apres Vright=%f, nk=%i, nk2=%i, VRprec[0]=%f, VRprec[1]=%f, VRprec[2]=%f\n",model.Vright,nk,nk2,model.VR_prec[0],model.VR_prec[1],model.VR_prec[2]); 
 end
 
 function update!(m::GQR_ARAm, model::AbstractModel;gradient::Bool=false,hessian::Bool=false)

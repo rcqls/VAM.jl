@@ -31,7 +31,7 @@ function parse_model(ex_f::Expr)
         #print(ex_m.args)
         if ex_m.args[2].args[1] == :|
             ex_cm = ex_m.args[2]
-            parse_cm(m, ex_cm)
+            parse_cm!(m, ex_cm)
             ## PMs (Preventive Maintenances) and MPs (Maintenance Policies)
             ex_pm = ex_m.args[3]
             if ex_pm.args[1] == :|
@@ -39,12 +39,14 @@ function parse_model(ex_f::Expr)
                 ex_pms = ex_pm.args[2]
                 if ex_pms.args[1] == :+
                     # several PMs
-                    for pm in ex_pms.args[2:end]
-                        push!(m.models,eval(pm))
+                    for pm in ex_pms.args[2:end]    
+                        #push!(m.models,eval(pm))
+                        add_maintenance_model!(m, pm)
                     end
                 else
                     # only 1 PM
-                    push!(m.models,eval(ex_pms))
+                    #push!(m.models,eval(ex_pms))
+                    add_maintenance_model!(m, ex_pms)
                 end
                 # Maintenance policies
                 ex_mps = ex_pm.args[3]
@@ -65,25 +67,28 @@ function parse_model(ex_f::Expr)
                 if ex_pm.args[1] == :+
                     # several PMs
                     for pm in ex_pm.args[2:end]
-                        push!(m.models,eval(pm))
+                        ## push!(m.models,eval(pm))
+                        add_maintenance_model!(m, pm)
                     end
                 else
                     # only 1 PM
-                    push!(m.models,eval(ex_pm))
+                    #push!(m.models,eval(ex_pm))
+                    add_maintenance_model!(m, ex_pm)
                 end 
 
             end
         else
             ##No PM
-            parse_cm(m, ex_m)
+            parse_cm!(m, ex_m)
         end
         return m
     end
 end
 
-function parse_cm(m::AbstractModel,ex_cm::Expr)
+function parse_cm!(m::AbstractModel,ex_cm::Expr)
     if ex_cm.args[1] == :|
-        push!(m.models,eval(ex_cm.args[2])) # CM (Corrective Maintenance)
+        #push!(m.models,eval(ex_cm.args[2])) # CM (Corrective Maintenance)
+        add_maintenance_model!(m,ex_cm.args[2])
         fm = ex_cm.args[3]
         #fm.args[1] = complete_name(fm.args[1], "FamilyModel")
         if isa(fm.args[2], Expr) && fm.args[2].head == :parameters
@@ -94,6 +99,17 @@ function parse_cm(m::AbstractModel,ex_cm::Expr)
         else
             m.family = eval(complete_name!(fm, 1, "FamilyModel"))
         end
+    end
+end
+
+function add_maintenance_model!(m::AbstractModel,ex_mm::Expr)
+    if Meta.isexpr(ex_mm.args[end],:call) && ex_mm.args[end].args[1] == :|
+        ## ex: GQR(...|f) -> GQR(...,f)
+        ex = copy(ex_mm) # Do not change original ex_mm
+        ex.args = vcat(ex.args[1:end-1],ex.args[end].args[2:end])
+        push!(m.models,eval(ex))
+    else
+        push!(m.models,eval(ex_mm))
     end
 end
 

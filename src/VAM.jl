@@ -1,6 +1,6 @@
 module VAM
 
-using Random, DataFrames, Optim
+using Random, DataFrames, Optim, Distributions
 export @vam, @stop, params, params!, select_data, simulator, sim, simulate, mle
 export contrast, gradient, hessian
 

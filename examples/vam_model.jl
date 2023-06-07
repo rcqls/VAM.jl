@@ -1,4 +1,5 @@
 using VAM
+]using Distributions
 
 vam = @vam(time & type ~ (ARAInf(0.4) | Weibull(0.001,2.5)))
 VAM.init!(vam)
@@ -33,3 +34,7 @@ else
 end
 VAM.parse_model(ex_f1)
 VAM.parse_model(ex_f2)
+
+ex_f_b = :(Time & Type ~ (ARAInf(~Uniform()) | Weibull(~Uniform(),~Uniform(2,4))))
+VAM.parse_model(ex_f_b)
+Uniform

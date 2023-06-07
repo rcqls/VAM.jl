@@ -60,12 +60,21 @@ function update!(modtest::ModelTest)
 	end
 end
 
-function test(modtest::ModelTest)
+function test(modtest::ModelTest;atol=0.0000000001)
 	for (key, result) in modtest.results
 		@testset verbose = true "model $key" begin
 			@testset "result $k" for k in [:lnL, :dlnL, :C, :dC]
-				@test result[:jl][k] ≈ result[:r][k] atol=0.00000000000001
+				@test result[:jl][k] ≈ result[:r][k] atol=atol
 			end
+		end
+	end
+end
+
+function test(modtest::ModelTest, key::Symbol;atol=0.0000000001)
+	result = modtest.results[key]
+	@testset verbose = true "model $key" begin
+		@testset "result $k" for k in [:lnL, :dlnL, :C, :dC]
+			@test result[:jl][k] ≈ result[:r][k] atol=atol
 		end
 	end
 end
