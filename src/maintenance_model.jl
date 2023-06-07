@@ -114,7 +114,7 @@ mutable struct GQR_ARAm <: GQRMaintenanceModel
     f::Function
     K::Float64
 end
-function GQR_ARAm(ρQR::Float64, ρARA::Float64, m::Int, f::Function)
+function GQR_ARAm(ρQR::Float64, ρARA::Float64, m::Int, f::Function=identity)
     m = GQR_ARAm(ρQR, ρARA, m, f, 0)
     if m.f == log
         m.f = x -> log(x + 1)
@@ -1182,18 +1182,18 @@ function update!(m::GQR_ARAm, model::AbstractModel;gradient::Bool=false,hessian:
             end
         end
         if  model.k > m.m && nk2 > 0
-            if nk > nk2
+            if nk > nk2 + 1
                 for i in 1:npm
                     model.dVright[i] -= m.ρARA * model.dVR_prec[(nk2 - 1) * npm + i]
                     model.dVR_prec[nk2 * npm + i] = (1 - m.ρARA) * model.dVR_prec[(nk2 - 1) * npm + i]
                 end
-                model.dVR_prec[nk2 * npm + model.id_params] -= model.VR_prec[nk2]
-                model.dVright[model.id_params] -= model.VR_prec[nk2]
+                model.dVR_prec[nk2 * npm + model.id_params + 1] -= model.VR_prec[nk2 - 1]
+                model.dVright[model.id_params + 1] -= model.VR_prec[nk2 - 1]
             else
                 for i in 1:npm
                     model.dVright[i] -= m.ρARA * model.dVR_prec[(nk2 - 1) * npm + i]
                 end
-                model.dVright[model.id_params] -= model.VR_prec[nk2 - 1]
+                model.dVright[model.id_params + 1] -= model.VR_prec[nk2 - 1]
             end
         end
         for k in (nk2 - 1):-1:1
@@ -1202,7 +1202,7 @@ function update!(m::GQR_ARAm, model::AbstractModel;gradient::Bool=false,hessian:
                 model.dVR_prec[k * npm + i] = (1 - m.ρARA) * model.dVR_prec[(k - 1) * npm + i]
             end
             model.dVR_prec[k * npm + model.id_params] -= model.VR_prec[k]
-            model.dVright[model.id_params] -= model.VR_prec[k]
+            model.dVright[model.id_params + 1] -= model.VR_prec[k]
         end
         if nk > 0
             for i in 1:npm
@@ -1211,13 +1211,13 @@ function update!(m::GQR_ARAm, model::AbstractModel;gradient::Bool=false,hessian:
                 model.dVright[i] += prov
             end
             prov = model.A * model.Δt
-            model.dVR_prec[model.id_params] -= prov
-            model.dVright[model.id_params] -= prov
+            model.dVR_prec[model.id_params + 1] -= prov
+            model.dVright[model.id_params + 1] -= prov
         else
             for i in 1:npm
                 model.dVright[i] += (1 - m.ρARA) * model.dA[i] * model.Δt
             end
-            model.dVright[model.id_params] -= model.A * model.Δt
+            model.dVright[model.id_params + 1] -= model.A * model.Δt
         end
         for i in 1:npm
             model.dA[i] = m.ρQR^δ *  model.dA[i]
@@ -1240,7 +1240,7 @@ function update!(m::GQR_ARAm, model::AbstractModel;gradient::Bool=false,hessian:
     end
     if nk2 > 1
         for k=(nk2 - 1):-1:1
-            model.Vright -= m.ρARA* model.VR_prec[k]
+            model.Vright -= m.ρARA * model.VR_prec[k]
             model.VR_prec[k + 1] = (1 - m.ρARA) * model.VR_prec[k]
         end
     end
