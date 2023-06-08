@@ -1,3 +1,6 @@
+using OrderedCollections
+import Base.empty!
+
 const ModelDict = Dict{Symbol, Any}
 function empty!(md::ModelDict)
 	for (k, _) in md

@@ -2,7 +2,6 @@ using Test
 using VAM
 using DataFrames
 using RCall
-using OrderedCollections
 
 include("testing.jl")
 
@@ -195,7 +194,7 @@ key = :W_GQRSqrt
 # key = :W_ARAm3 
 # key = :W_ARAm4
 # key = :W_ARAm2_ARAm4_MS
-key = :W_GQRARA1
+key = :W_GQRARA1Log
 # key = :W_GQRARAm3Log
 modtest.models[key][:r][2]
 update!(modtest, key)

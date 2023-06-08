@@ -1,5 +1,5 @@
 using VAM
-]using Distributions
+using Distributions
 
 vam = @vam(time & type ~ (ARAInf(0.4) | Weibull(0.001,2.5)))
 VAM.init!(vam)
