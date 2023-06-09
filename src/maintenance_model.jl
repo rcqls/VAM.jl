@@ -1,56 +1,67 @@
 abstract type AbstractMaintenanceModel end
 init!(mm::AbstractMaintenanceModel) = nothing
+function isbayesian(mm::AbstractMaintenanceModel)::Bool
+    return all(map( x -> x isa Distribution , mm.priors))
+end
+
 
 mutable struct ARA1 <: AbstractMaintenanceModel
-    ρ::Float64
+    ρ::Parameter #Float64
+    priors::Priors
 end
-params(m::ARA1)::Vector{Float64} = [m.ρ]
-params!(m::ARA1, p::Vector{Float64}) = begin;m.ρ = p[1]; nothing; end
+ARA1(ρ::Parameter) = ARA1(ρ,[nothing])
+params(m::ARA1)::Parameters = [m.ρ]
+params!(m::ARA1, p::Parameters) = begin;m.ρ = p[1]; nothing; end
 nb_params(m::ARA1) = 1
 mutable struct ARAInf <: AbstractMaintenanceModel 
-	ρ::Float64
+	ρ::Parameter #Float64
+    priors::Priors
 end
-
-ARA∞(ρ::Float64) = ARAInf(ρ)
-params(m::ARAInf)::Vector{Float64} = [m.ρ]
-params!(m::ARAInf, p::Vector{Float64}) = begin;m.ρ = p[1]; nothing; end
+ARAInf(ρ::Parameter) = ARAInf(ρ,[nothing])
+ARA∞(ρ::Parameter) = ARAInf(ρ)
+params(m::ARAInf)::Parameters = [m.ρ]
+params!(m::ARAInf, p::Parameters) = begin;m.ρ = p[1]; nothing; end
 nb_params(m::ARAInf) = 1
 
 mutable struct ARAm <: AbstractMaintenanceModel
-    ρ::Float64
+    ρ::Parameter #Float64
     m::Int
+    priors::Priors
 end
-params(m::ARAm)::Vector{Float64} = [m.ρ]
-params!(m::ARAm, p::Vector{Float64}) = begin;m.ρ = p[1]; nothing; end
+ARAm(ρ::Parameter,m::Int) = ARAm(ρ,m,[nothing])
+params(m::ARAm)::Parameters = [m.ρ]
+params!(m::ARAm, p::Parameters) = begin;m.ρ = p[1]; nothing; end
 nb_params(m::ARAm) = 1 # only parameters considered in the optim
 
 struct AGAN <: AbstractMaintenanceModel
 end
-params(m::AGAN)::Vector{Float64} = []
-params!(m::AGAN, p::Vector{Float64}) = nothing
+params(m::AGAN)::Parameters = []
+params!(m::AGAN, p::Parameters) = nothing
 nb_params(m::AGAN) = 0
 struct ABAO <: AbstractMaintenanceModel
 end
-params(m::ABAO)::Vector{Float64} = []
-params!(m::ABAO, p::Vector{Float64}) = nothing
+params(m::ABAO)::Parameters = []
+params!(m::ABAO, p::Parameters) = nothing
 nb_params(m::ABAO) = 0
 
 struct AGAP <: AbstractMaintenanceModel
 end
-params(m::AGAP)::Vector{Float64} = []
-params!(m::AGAP, p::Vector{Float64}) = nothing
+params(m::AGAP)::Parameters = []
+params!(m::AGAP, p::Parameters) = nothing
 nb_params(m::AGAP) = 0
 mutable struct QAGAN <: AbstractMaintenanceModel
 end
-params(m::QAGAN)::Vector{Float64} = []
-params!(m::QAGAN, p::Vector{Float64}) = nothing
+params(m::QAGAN)::Parameters = []
+params!(m::QAGAN, p::Parameters) = nothing
 nb_params(m::QAGAN) = 0
 
 mutable struct QR <: AbstractMaintenanceModel
-    ρ::Float64
+    ρ::Parameter #Float64
+    priors::Priors
 end
-params(m::QR)::Vector{Float64} = [m.ρ]
-params!(m::QR, p::Vector{Float64}) = begin;m.ρ = p[1]; nothing; end
+QR(ρ::Parameter) = QR(ρ,[nothing])
+params(m::QR)::Parameters = [m.ρ]
+params!(m::QR, p::Parameters) = begin;m.ρ = p[1]; nothing; end
 nb_params(m::QR) = 1
 
 abstract type GQRMaintenanceModel <: AbstractMaintenanceModel end
@@ -59,70 +70,74 @@ function init!(mm::GQRMaintenanceModel)
 end
 
 mutable struct GQR <: GQRMaintenanceModel
-    ρ::Float64
+    ρ::Parameter #Float64
     f::Function
     K::Float64
+    priors::Priors
 end
-function GQR(ρ::Float64, f::Function=identity) 
-    m = GQR(ρ, f, 0)
+function GQR(ρ::Parameter, f::Function=identity) 
+    m = GQR(ρ, f, 0, [nothing])
     if m.f == log
         m.f = x -> log(x + 1)
     end
     return m
 end
-params(m::GQR)::Vector{Float64} = [m.ρ]
-params!(m::GQR, p::Vector{Float64}) = begin;m.ρ = p[1]; nothing; end
+params(m::GQR)::Parameters = [m.ρ]
+params!(m::GQR, p::Parameters) = begin;m.ρ = p[1]; nothing; end
 nb_params(m::GQR) = 1
 
 mutable struct GQR_ARA1 <:  GQRMaintenanceModel
-    ρQR::Float64
-    ρARA::Float64
+    ρQR::Parameter #Float64
+    ρARA::Parameter #Float64
     f::Function
     K::Float64
+    priors::Priors
 end
-function GQR_ARA1(ρQR::Float64, ρARA::Float64, f::Function=identity)
-    m = GQR_ARA1(ρQR, ρARA, f, 0)
+function GQR_ARA1(ρQR::Parameter, ρARA::Parameter, f::Function=identity)
+    m = GQR_ARA1(ρQR, ρARA, f, 0, [nothing, nothing])
     if m.f == log
         m.f = x -> log(x + 1)
     end
     return m
 end
-params(m::GQR_ARA1)::Vector{Float64} = [m.ρQR, m.ρARA]
-params!(m::GQR_ARA1, p::Vector{Float64}) = begin; m.ρQR, m.ρARA = p; nothing; end
+params(m::GQR_ARA1)::Parameters = [m.ρQR, m.ρARA]
+params!(m::GQR_ARA1, p::Parameters) = begin; m.ρQR, m.ρARA = p; nothing; end
 nb_params(m::GQR_ARA1) = 2
 mutable struct GQR_ARAInf <:  GQRMaintenanceModel
-    ρQR::Float64
-    ρARA::Float64
+    ρQR::Parameter #Float64
+    ρARA::Parameter #Float64
     f::Function
     K::Float64
+    priors::Priors
 end
 function GQR_ARAInf(ρQR::Float64, ρARA::Float64, f::Function=identity)
-    m = GQR_ARAInf(ρQR, ρARA, f, 0)
+    m = GQR_ARAInf(ρQR, ρARA, f, 0, [nothing, nothing])
     if m.f == log
         m.f = x -> log(x + 1)
     end
     return m
 end
 GQR_ARA∞(ρQR::Float64,ρARA::Float64, f::Function) = GQR_ARAInf(ρQR,ρARA, f)
-params(m::GQR_ARAInf)::Vector{Float64} = [m.ρQR, m.ρARA]
-params!(m::GQR_ARAInf, p::Vector{Float64}) = begin; m.ρQR, m.ρARA = p; nothing; end
+params(m::GQR_ARAInf)::Parameters = [m.ρQR, m.ρARA]
+params!(m::GQR_ARAInf, p::Parameters) = begin; m.ρQR, m.ρARA = p; nothing; end
 nb_params(m::GQR_ARAInf) = 2
 mutable struct GQR_ARAm <: GQRMaintenanceModel
-    ρQR::Float64
-    ρARA::Float64
+    ρQR::Parameter #Float64
+    ρARA::Parameter #Float64
     m::Int
     f::Function
     K::Float64
+    priors::Priors
 end
 function GQR_ARAm(ρQR::Float64, ρARA::Float64, m::Int, f::Function=identity)
-    m = GQR_ARAm(ρQR, ρARA, m, f, 0)
+    m = GQR_ARAm(ρQR, ρARA, m, f, 0, [nothing, nothing])
     if m.f == log
         m.f = x -> log(x + 1)
     end
     return m
 end
-params(m::GQR_ARAm)::Vector{Float64} = [m.ρQR, m.ρARA]
-params!(m::GQR_ARAm, p::Vector{Float64}) = begin; m.ρQR, m.ρARA = p; nothing; end
+params(m::GQR_ARAm)::Parameters = [m.ρQR, m.ρARA]
+params!(m::GQR_ARAm, p::Parameters) = begin; m.ρQR, m.ρARA = p; nothing; end
 nb_params(m::GQR_ARAm) = 2
 
 function update!(m::ARA1, model::AbstractModel; gradient::Bool=false, hessian::Bool=false)

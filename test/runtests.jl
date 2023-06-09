@@ -226,3 +226,5 @@ modtest.results[:W_ARAm∞_vs_ARA∞][:jl]
 
 update!(modtest)
 test(modtest)
+
+VAM.isbayesian(modtest.models[:W_ARAm∞][:vam].models[1])

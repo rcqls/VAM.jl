@@ -6,6 +6,11 @@ export contrast, gradient, hessian
 
 abstract type AbstractModel end
 
+const Prior = Union{Nothing,Distribution}
+const Priors = Vector{Prior}
+const Parameter = Float64
+const Parameters = Vector{Float64}
+
 include("tool.jl")
 include("compute.jl")
 include("formula.jl")

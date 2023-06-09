@@ -38,3 +38,11 @@ VAM.parse_model(ex_f2)
 ex_f_b = :(Time & Type ~ (ARAInf(~Uniform()) | Weibull(~Uniform(),~Uniform(2,4))))
 VAM.parse_model(ex_f_b)
 Uniform
+
+mutable struct A
+    dist::VAM.Prior
+end
+
+
+a = A(Uniform())
+a.dist = nothing

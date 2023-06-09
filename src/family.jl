@@ -27,21 +27,23 @@ function init!(fc::FamilyCompute, fm::FamilyModel)
     fc.d2h = zeros(nbd2)
 end
 mutable struct WeibullFamilyModel <: FamilyModel
-    α::Float64
-    β::Float64
+    α::Parameter #Float64
+    β::Parameter #Float64
     covariates::Union{Nothing, Vector{Any}}
     comp::FamilyCompute
+    priors::Priors
     WeibullFamilyModel() = new()
 end
 function WeibullFamilyModel(α::Float64, β::Float64)
     fm = WeibullFamilyModel()
     fm.α, fm.β =  α, β
+    fm.priors = [nothing, nothing]
     fm.comp = FamilyCompute()
     init!(fm.comp, fm)
     return fm
 end
-params(fm::WeibullFamilyModel)::Vector{Float64} = [fm.α,fm.β]
-params!(fm::WeibullFamilyModel, p::Vector{Float64}) = begin; fm.α,fm.β = p; nothing; end
+params(fm::WeibullFamilyModel)::Parameters = [fm.α,fm.β]
+params!(fm::WeibullFamilyModel, p::Parameters) = begin; fm.α,fm.β = p; nothing; end
 nb_params(fm::WeibullFamilyModel) = 2
 
 hazard_rate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.β * x^(f.β - 1) )
@@ -80,21 +82,23 @@ end
 const LDorder = 5
 const bxLim = 0.000001
 mutable struct LogLinearFamilyModel <:  FamilyModel
-    α::Float64
-    β::Float64
+    α::Parameter #Float64
+    β::Parameter #Float64
     covariates::Union{Nothing, Vector{Any}}
     comp::FamilyCompute
+    priors::Priors
     LogLinearFamilyModel() = new()
 end
 function  LogLinearFamilyModel(α::Float64, β::Float64)
     fm =  LogLinearFamilyModel()
     fm.α, fm.β =  α, β
+    fm.priors = [nothing, nothing] 
     fm.comp = FamilyCompute()
     init!(fm.comp, fm)
     return fm
 end
-params(fm::LogLinearFamilyModel)::Vector{Float64} = [fm.α,fm.β]
-params!(fm::LogLinearFamilyModel, p::Vector{Float64}) = begin;fm.α,fm.β = p; nothing; end
+params(fm::LogLinearFamilyModel)::Parameters = [fm.α,fm.β]
+params!(fm::LogLinearFamilyModel, p::Parameters) = begin;fm.α,fm.β = p; nothing; end
 nb_params(fm::LogLinearFamilyModel) = 2
 
 hazard_rate(f::LogLinearFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * exp(f.β * x) )
@@ -171,22 +175,24 @@ function cumulative_hazard_rate_param_2derivative(f::LogLinearFamilyModel, x::Fl
 end
 
 mutable struct Weibull3FamilyModel <: FamilyModel
-    α::Float64
-    β::Float64
-    δ::Float64
+    α::Parameter #Float64
+    β::Parameter #Float64
+    δ::Parameter #Float64
     covariates::Union{Nothing, Vector{Any}}
     comp::FamilyCompute
+    priors::Priors
     Weibull3FamilyModel() = new()
 end
 function Weibull3FamilyModel(α::Float64, β::Float64, δ::Float64)
     fm = Weibull3FamilyModel()
     fm.α, fm.β, fm.δ =  α, β, δ
+    fm.priors = [nothing, nothing, nothing]
     fm.comp = FamilyCompute()
     init!(fm.comp, fm)
     return fm
 end
-params(fm::Weibull3FamilyModel)::Vector{Float64} = [fm.α,fm.β,fm.δ]
-params!(fm::Weibull3FamilyModel, p::Vector{Float64}) = begin; fm.α,fm.β,fm.δ = p; nothing; end
+params(fm::Weibull3FamilyModel)::Parameters = [fm.α,fm.β,fm.δ]
+params!(fm::Weibull3FamilyModel, p::Parameters) = begin; fm.α,fm.β,fm.δ = p; nothing; end
 nb_params(fm::Weibull3FamilyModel) = 3
 
 hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = x<0 ? 0 : f.α * f.β * (x + f.δ)^(f.β - 1)

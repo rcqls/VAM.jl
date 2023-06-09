@@ -13,7 +13,7 @@ res <- coef(AMC_mle)
 @rget AMC_Amb
 @rget res
 
-m = @vam(Time & Type ~ (ARAInf(0.6) | Weibull(1.0,3.0)))
+m = @vam(Time & Type ~ (ARA∞(0.6) | Weibull(1.0,3.0)))
 mle(m, AMC_Amb)
 params(m)
 sum(abs.(res .- params(m)))
