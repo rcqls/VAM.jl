@@ -36,8 +36,8 @@ VAM.parse_model(ex_f1)
 VAM.parse_model(ex_f2)
 
 ex_f_b = :(Time & Type ~ (ARAInf(~Uniform()) | Weibull(~Uniform(),~Uniform(2,4))))
-VAM.parse_model(ex_f_b)
-Uniform
+m = VAM.parse_model(ex_f_b)
+m.models[1].priors[1]
 
 mutable struct A
     dist::VAM.Prior

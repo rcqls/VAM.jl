@@ -6,15 +6,16 @@ end
 
 
 mutable struct ARA1 <: AbstractMaintenanceModel
-    ρ::Parameter #Float64
+    ρ::Parameter
     priors::Priors
 end
 ARA1(ρ::Parameter) = ARA1(ρ,[nothing])
 params(m::ARA1)::Parameters = [m.ρ]
 params!(m::ARA1, p::Parameters) = begin;m.ρ = p[1]; nothing; end
 nb_params(m::ARA1) = 1
+ARA1(ρ::Prior) = ARA1(0.0,[ρ])
 mutable struct ARAInf <: AbstractMaintenanceModel 
-	ρ::Parameter #Float64
+	ρ::Parameter
     priors::Priors
 end
 ARAInf(ρ::Parameter) = ARAInf(ρ,[nothing])
@@ -22,9 +23,10 @@ ARA∞(ρ::Parameter) = ARAInf(ρ)
 params(m::ARAInf)::Parameters = [m.ρ]
 params!(m::ARAInf, p::Parameters) = begin;m.ρ = p[1]; nothing; end
 nb_params(m::ARAInf) = 1
-
+ARAInf(ρ::Prior) = ARAInf(0.0,[ρ])
+ARA∞(ρ::Prior) = ARAInf(ρ)
 mutable struct ARAm <: AbstractMaintenanceModel
-    ρ::Parameter #Float64
+    ρ::Parameter
     m::Int
     priors::Priors
 end
@@ -32,6 +34,7 @@ ARAm(ρ::Parameter,m::Int) = ARAm(ρ,m,[nothing])
 params(m::ARAm)::Parameters = [m.ρ]
 params!(m::ARAm, p::Parameters) = begin;m.ρ = p[1]; nothing; end
 nb_params(m::ARAm) = 1 # only parameters considered in the optim
+ARAm(ρ::Prior,m::Int) = ARAm(0.0,m,[ρ])
 
 struct AGAN <: AbstractMaintenanceModel
 end
@@ -56,13 +59,14 @@ params!(m::QAGAN, p::Parameters) = nothing
 nb_params(m::QAGAN) = 0
 
 mutable struct QR <: AbstractMaintenanceModel
-    ρ::Parameter #Float64
+    ρ::Parameter
     priors::Priors
 end
 QR(ρ::Parameter) = QR(ρ,[nothing])
 params(m::QR)::Parameters = [m.ρ]
 params!(m::QR, p::Parameters) = begin;m.ρ = p[1]; nothing; end
 nb_params(m::QR) = 1
+QR(ρ::Prior) = QR(0.0,[ρ])
 
 abstract type GQRMaintenanceModel <: AbstractMaintenanceModel end
 function init!(mm::GQRMaintenanceModel)
@@ -70,7 +74,7 @@ function init!(mm::GQRMaintenanceModel)
 end
 
 mutable struct GQR <: GQRMaintenanceModel
-    ρ::Parameter #Float64
+    ρ::Parameter
     f::Function
     K::Float64
     priors::Priors
@@ -85,10 +89,15 @@ end
 params(m::GQR)::Parameters = [m.ρ]
 params!(m::GQR, p::Parameters) = begin;m.ρ = p[1]; nothing; end
 nb_params(m::GQR) = 1
+function GQR(ρ::Prior, f::Function=identity)
+    m = GPR(0.0,f)
+    m.priors = [ρ]
+    return m
+end
 
 mutable struct GQR_ARA1 <:  GQRMaintenanceModel
-    ρQR::Parameter #Float64
-    ρARA::Parameter #Float64
+    ρQR::Parameter
+    ρARA::Parameter
     f::Function
     K::Float64
     priors::Priors
@@ -103,33 +112,45 @@ end
 params(m::GQR_ARA1)::Parameters = [m.ρQR, m.ρARA]
 params!(m::GQR_ARA1, p::Parameters) = begin; m.ρQR, m.ρARA = p; nothing; end
 nb_params(m::GQR_ARA1) = 2
+function GQR_ARA1(ρQR::Prior, ρARA::Prior, f::Function=identity)
+    m = GPR_ARA1(0.0,0.0,f)
+    m.priors = [ρQR,ρARA]
+    return m
+end
+
 mutable struct GQR_ARAInf <:  GQRMaintenanceModel
-    ρQR::Parameter #Float64
-    ρARA::Parameter #Float64
+    ρQR::Parameter
+    ρARA::Parameter
     f::Function
     K::Float64
     priors::Priors
 end
-function GQR_ARAInf(ρQR::Float64, ρARA::Float64, f::Function=identity)
+function GQR_ARAInf(ρQR::Parameter, ρARA::Parameter, f::Function=identity)
     m = GQR_ARAInf(ρQR, ρARA, f, 0, [nothing, nothing])
     if m.f == log
         m.f = x -> log(x + 1)
     end
     return m
 end
-GQR_ARA∞(ρQR::Float64,ρARA::Float64, f::Function) = GQR_ARAInf(ρQR,ρARA, f)
+GQR_ARA∞(ρQR::Parameter,ρARA::Parameter, f::Function) = GQR_ARAInf(ρQR,ρARA, f)
 params(m::GQR_ARAInf)::Parameters = [m.ρQR, m.ρARA]
 params!(m::GQR_ARAInf, p::Parameters) = begin; m.ρQR, m.ρARA = p; nothing; end
 nb_params(m::GQR_ARAInf) = 2
+function GQR_ARAInf(ρQR::Prior, ρARA::Prior, f::Function=identity)
+    m = GPR_ARA1(0.0,0.0,f)
+    m.priors = [ρQR,ρARA]
+    return m
+end
+GQR_ARA∞(ρQR::Prior, ρARA::Prior, f::Function=identity) =  GQR_ARAInf(ρQR, ρARA, f)
 mutable struct GQR_ARAm <: GQRMaintenanceModel
-    ρQR::Parameter #Float64
-    ρARA::Parameter #Float64
+    ρQR::Parameter
+    ρARA::Parameter
     m::Int
     f::Function
     K::Float64
     priors::Priors
 end
-function GQR_ARAm(ρQR::Float64, ρARA::Float64, m::Int, f::Function=identity)
+function GQR_ARAm(ρQR::Parameter, ρARA::Parameter, m::Int, f::Function=identity)
     m = GQR_ARAm(ρQR, ρARA, m, f, 0, [nothing, nothing])
     if m.f == log
         m.f = x -> log(x + 1)
@@ -139,6 +160,11 @@ end
 params(m::GQR_ARAm)::Parameters = [m.ρQR, m.ρARA]
 params!(m::GQR_ARAm, p::Parameters) = begin; m.ρQR, m.ρARA = p; nothing; end
 nb_params(m::GQR_ARAm) = 2
+function GQR_ARAm(ρQR::Prior, ρARA::Prior, m::Int, f::Function=identity)
+    m = GPR_ARAm(0.0,0.0,m,f)
+    m.priors = [ρQR,ρARA]
+    return m
+end
 
 function update!(m::ARA1, model::AbstractModel; gradient::Bool=false, hessian::Bool=false)
     inc!(model) #model.k += 1

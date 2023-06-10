@@ -95,11 +95,22 @@ function parse_cm!(m::AbstractModel,ex_cm::Expr)
             # covariates
             fm2=Expr(:call, fm.args[1], fm.args[3:end]..., fm.args[2].args[1].args)
             println(fm2)
-            m.family = eval(complete_name!(fm2, 1, "FamilyModel"))
+            #m.family = eval(complete_name!(fm2, 1, "FamilyModel"))
+            add_family_model!(m,fm2)
         else
-            m.family = eval(complete_name!(fm, 1, "FamilyModel"))
+            #m.family = eval(complete_name!(fm, 1, "FamilyModel"))
+            add_family_model!(m,fm)
         end
     end
+end
+
+function parse_bayesian_parameters!(ex::Expr)
+    ex.args = map(e -> Meta.isexpr(e, :call) && e.args[1] == :~  ? e.args[2] : e , ex.args)
+end
+
+function add_family_model!(m::AbstractModel,ex_fm::Expr)
+    parse_bayesian_parameters!(ex_fm)
+    m.family = eval(complete_name!(ex_fm, 1, "FamilyModel"))
 end
 
 function add_maintenance_model!(m::AbstractModel,ex_mm::Expr)
@@ -111,8 +122,10 @@ function add_maintenance_model!(m::AbstractModel,ex_mm::Expr)
         # OLD: ex.args = vcat(ex.args[1:end-1],ex.args[end].args[2:end])
         i = pipe_index[1]
         ex.args = vcat(ex.args[1:i-1],ex.args[i].args[2:end],ex.args[i+1:end])
+        parse_bayesian_parameters!(ex)
         push!(m.models,eval(ex))
     else
+        parse_bayesian_parameters!(ex_mm)
         push!(m.models,eval(ex_mm))
     end
 end
@@ -146,7 +159,10 @@ function formula_translate(ex_f::Expr)
 end
 
 function complete_name!(ex::Expr, i::Int, append::String)::Expr
-    ex.args[i] = Symbol(string(ex.args[i]) * append)
+    s = string(ex.args[i])
+    if (length(s) <= length(append)) || !(s[end-length(append)+1:end] == append )
+        ex.args[i] = Symbol(string(ex.args[i]) * append)
+    end
     return ex
 end
 

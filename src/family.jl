@@ -34,7 +34,7 @@ mutable struct WeibullFamilyModel <: FamilyModel
     priors::Priors
     WeibullFamilyModel() = new()
 end
-function WeibullFamilyModel(α::Float64, β::Float64)
+function WeibullFamilyModel(α::Parameter, β::Parameter)
     fm = WeibullFamilyModel()
     fm.α, fm.β =  α, β
     fm.priors = [nothing, nothing]
@@ -45,6 +45,11 @@ end
 params(fm::WeibullFamilyModel)::Parameters = [fm.α,fm.β]
 params!(fm::WeibullFamilyModel, p::Parameters) = begin; fm.α,fm.β = p; nothing; end
 nb_params(fm::WeibullFamilyModel) = 2
+function WeibullFamilyModel(α::Prior, β::Prior)
+    fm = WeibullFamilyModel(0.0, 0.0)
+    fm.priors = [α, β]
+    return fm
+end
 
 hazard_rate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * f.β * x^(f.β - 1) )
 inverse_hazard_rate(f::WeibullFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : (x/f.α/f.β)^(1/(f.β-1)))
@@ -89,7 +94,7 @@ mutable struct LogLinearFamilyModel <:  FamilyModel
     priors::Priors
     LogLinearFamilyModel() = new()
 end
-function  LogLinearFamilyModel(α::Float64, β::Float64)
+function  LogLinearFamilyModel(α::Parameter, β::Parameter)
     fm =  LogLinearFamilyModel()
     fm.α, fm.β =  α, β
     fm.priors = [nothing, nothing] 
@@ -100,6 +105,11 @@ end
 params(fm::LogLinearFamilyModel)::Parameters = [fm.α,fm.β]
 params!(fm::LogLinearFamilyModel, p::Parameters) = begin;fm.α,fm.β = p; nothing; end
 nb_params(fm::LogLinearFamilyModel) = 2
+function LogLinearFamilyModel(α::Prior, β::Prior)
+    fm = LogLinearFamilyModel(0.0, 0.0)
+    fm.priors = [α, β]
+    return fm
+end
 
 hazard_rate(f::LogLinearFamilyModel, x::Float64)::Float64 = (x<=0 ? 0 : f.α * exp(f.β * x) )
 inverse_hazard_rate(f::LogLinearFamilyModel, x::Float64)::Float64 = log(x/f.α)/f.β
@@ -183,7 +193,7 @@ mutable struct Weibull3FamilyModel <: FamilyModel
     priors::Priors
     Weibull3FamilyModel() = new()
 end
-function Weibull3FamilyModel(α::Float64, β::Float64, δ::Float64)
+function Weibull3FamilyModel(α::Parameter, β::Parameter, δ::Parameter)
     fm = Weibull3FamilyModel()
     fm.α, fm.β, fm.δ =  α, β, δ
     fm.priors = [nothing, nothing, nothing]
@@ -194,6 +204,11 @@ end
 params(fm::Weibull3FamilyModel)::Parameters = [fm.α,fm.β,fm.δ]
 params!(fm::Weibull3FamilyModel, p::Parameters) = begin; fm.α,fm.β,fm.δ = p; nothing; end
 nb_params(fm::Weibull3FamilyModel) = 3
+function Weibull3FamilyModel(α::Prior, β::Prior, δ::Prior)
+    fm = Weibull3FamilyModel(0.0, 0.0, 0.0)
+    fm.priors = [α, β, δ]
+    return fm
+end
 
 hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = x<0 ? 0 : f.α * f.β * (x + f.δ)^(f.β - 1)
 inverse_hazard_rate(f::Weibull3FamilyModel, x::Float64)::Float64 = x<=0 ? 0 : (x/f.α/f.β)^(1/(f.β-1)) - f.δ
