@@ -1,7 +1,7 @@
 abstract type AbstractMaintenanceModel end
 init!(mm::AbstractMaintenanceModel) = nothing
 function isbayesian(mm::AbstractMaintenanceModel)::Bool
-    return all(map( x -> x isa Distribution , mm.priors))
+    return nbparams(mm)==0 || all(map( x -> x isa Distribution , mm.priors))
 end
 
 
@@ -12,7 +12,7 @@ end
 ARA1(ρ::Parameter) = ARA1(ρ,[nothing])
 params(m::ARA1)::Parameters = [m.ρ]
 params!(m::ARA1, p::Parameters) = begin;m.ρ = p[1]; nothing; end
-nb_params(m::ARA1) = 1
+nbparams(m::ARA1) = 1
 ARA1(ρ::Prior) = ARA1(0.0,[ρ])
 mutable struct ARAInf <: AbstractMaintenanceModel 
 	ρ::Parameter
@@ -22,7 +22,7 @@ ARAInf(ρ::Parameter) = ARAInf(ρ,[nothing])
 ARA∞(ρ::Parameter) = ARAInf(ρ)
 params(m::ARAInf)::Parameters = [m.ρ]
 params!(m::ARAInf, p::Parameters) = begin;m.ρ = p[1]; nothing; end
-nb_params(m::ARAInf) = 1
+nbparams(m::ARAInf) = 1
 ARAInf(ρ::Prior) = ARAInf(0.0,[ρ])
 ARA∞(ρ::Prior) = ARAInf(ρ)
 mutable struct ARAm <: AbstractMaintenanceModel
@@ -33,30 +33,30 @@ end
 ARAm(ρ::Parameter,m::Int) = ARAm(ρ,m,[nothing])
 params(m::ARAm)::Parameters = [m.ρ]
 params!(m::ARAm, p::Parameters) = begin;m.ρ = p[1]; nothing; end
-nb_params(m::ARAm) = 1 # only parameters considered in the optim
+nbparams(m::ARAm) = 1 # only parameters considered in the optim
 ARAm(ρ::Prior,m::Int) = ARAm(0.0,m,[ρ])
 
 struct AGAN <: AbstractMaintenanceModel
 end
 params(m::AGAN)::Parameters = []
 params!(m::AGAN, p::Parameters) = nothing
-nb_params(m::AGAN) = 0
+nbparams(m::AGAN) = 0
 struct ABAO <: AbstractMaintenanceModel
 end
 params(m::ABAO)::Parameters = []
 params!(m::ABAO, p::Parameters) = nothing
-nb_params(m::ABAO) = 0
+nbparams(m::ABAO) = 0
 
 struct AGAP <: AbstractMaintenanceModel
 end
 params(m::AGAP)::Parameters = []
 params!(m::AGAP, p::Parameters) = nothing
-nb_params(m::AGAP) = 0
+nbparams(m::AGAP) = 0
 mutable struct QAGAN <: AbstractMaintenanceModel
 end
 params(m::QAGAN)::Parameters = []
 params!(m::QAGAN, p::Parameters) = nothing
-nb_params(m::QAGAN) = 0
+nbparams(m::QAGAN) = 0
 
 mutable struct QR <: AbstractMaintenanceModel
     ρ::Parameter
@@ -65,7 +65,7 @@ end
 QR(ρ::Parameter) = QR(ρ,[nothing])
 params(m::QR)::Parameters = [m.ρ]
 params!(m::QR, p::Parameters) = begin;m.ρ = p[1]; nothing; end
-nb_params(m::QR) = 1
+nbparams(m::QR) = 1
 QR(ρ::Prior) = QR(0.0,[ρ])
 
 abstract type GQRMaintenanceModel <: AbstractMaintenanceModel end
@@ -88,7 +88,7 @@ function GQR(ρ::Parameter, f::Function=identity)
 end
 params(m::GQR)::Parameters = [m.ρ]
 params!(m::GQR, p::Parameters) = begin;m.ρ = p[1]; nothing; end
-nb_params(m::GQR) = 1
+nbparams(m::GQR) = 1
 function GQR(ρ::Prior, f::Function=identity)
     m = GPR(0.0,f)
     m.priors = [ρ]
@@ -111,7 +111,7 @@ function GQR_ARA1(ρQR::Parameter, ρARA::Parameter, f::Function=identity)
 end
 params(m::GQR_ARA1)::Parameters = [m.ρQR, m.ρARA]
 params!(m::GQR_ARA1, p::Parameters) = begin; m.ρQR, m.ρARA = p; nothing; end
-nb_params(m::GQR_ARA1) = 2
+nbparams(m::GQR_ARA1) = 2
 function GQR_ARA1(ρQR::Prior, ρARA::Prior, f::Function=identity)
     m = GPR_ARA1(0.0,0.0,f)
     m.priors = [ρQR,ρARA]
@@ -135,7 +135,7 @@ end
 GQR_ARA∞(ρQR::Parameter,ρARA::Parameter, f::Function) = GQR_ARAInf(ρQR,ρARA, f)
 params(m::GQR_ARAInf)::Parameters = [m.ρQR, m.ρARA]
 params!(m::GQR_ARAInf, p::Parameters) = begin; m.ρQR, m.ρARA = p; nothing; end
-nb_params(m::GQR_ARAInf) = 2
+nbparams(m::GQR_ARAInf) = 2
 function GQR_ARAInf(ρQR::Prior, ρARA::Prior, f::Function=identity)
     m = GPR_ARA1(0.0,0.0,f)
     m.priors = [ρQR,ρARA]
@@ -159,7 +159,7 @@ function GQR_ARAm(ρQR::Parameter, ρARA::Parameter, m::Int, f::Function=identit
 end
 params(m::GQR_ARAm)::Parameters = [m.ρQR, m.ρARA]
 params!(m::GQR_ARAm, p::Parameters) = begin; m.ρQR, m.ρARA = p; nothing; end
-nb_params(m::GQR_ARAm) = 2
+nbparams(m::GQR_ARAm) = 2
 function GQR_ARAm(ρQR::Prior, ρARA::Prior, m::Int, f::Function=identity)
     m = GPR_ARAm(0.0,0.0,m,f)
     m.priors = [ρQR,ρARA]

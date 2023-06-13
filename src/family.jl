@@ -15,7 +15,7 @@ mutable struct FamilyCompute
 end
 
 function init!(fc::FamilyCompute, fm::FamilyModel)
-    nbd = nb_params(fm) -1
+    nbd = nbparams(fm) -1
     fc.dHR = zeros(nbd)
     fc.dHL = zeros(nbd)
     fc.dhR = zeros(nbd)
@@ -29,7 +29,6 @@ end
 mutable struct WeibullFamilyModel <: FamilyModel
     α::Parameter #Float64
     β::Parameter #Float64
-    covariates::Union{Nothing, Vector{Any}}
     comp::FamilyCompute
     priors::Priors
     WeibullFamilyModel() = new()
@@ -44,7 +43,7 @@ function WeibullFamilyModel(α::Parameter, β::Parameter)
 end
 params(fm::WeibullFamilyModel)::Parameters = [fm.α,fm.β]
 params!(fm::WeibullFamilyModel, p::Parameters) = begin; fm.α,fm.β = p; nothing; end
-nb_params(fm::WeibullFamilyModel) = 2
+nbparams(fm::WeibullFamilyModel) = 2
 function WeibullFamilyModel(α::Prior, β::Prior)
     fm = WeibullFamilyModel(0.0, 0.0)
     fm.priors = [α, β]
@@ -89,7 +88,6 @@ const bxLim = 0.000001
 mutable struct LogLinearFamilyModel <:  FamilyModel
     α::Parameter #Float64
     β::Parameter #Float64
-    covariates::Union{Nothing, Vector{Any}}
     comp::FamilyCompute
     priors::Priors
     LogLinearFamilyModel() = new()
@@ -104,7 +102,7 @@ function  LogLinearFamilyModel(α::Parameter, β::Parameter)
 end
 params(fm::LogLinearFamilyModel)::Parameters = [fm.α,fm.β]
 params!(fm::LogLinearFamilyModel, p::Parameters) = begin;fm.α,fm.β = p; nothing; end
-nb_params(fm::LogLinearFamilyModel) = 2
+nbparams(fm::LogLinearFamilyModel) = 2
 function LogLinearFamilyModel(α::Prior, β::Prior)
     fm = LogLinearFamilyModel(0.0, 0.0)
     fm.priors = [α, β]
@@ -188,7 +186,6 @@ mutable struct Weibull3FamilyModel <: FamilyModel
     α::Parameter #Float64
     β::Parameter #Float64
     δ::Parameter #Float64
-    covariates::Union{Nothing, Vector{Any}}
     comp::FamilyCompute
     priors::Priors
     Weibull3FamilyModel() = new()
@@ -203,7 +200,7 @@ function Weibull3FamilyModel(α::Parameter, β::Parameter, δ::Parameter)
 end
 params(fm::Weibull3FamilyModel)::Parameters = [fm.α,fm.β,fm.δ]
 params!(fm::Weibull3FamilyModel, p::Parameters) = begin; fm.α,fm.β,fm.δ = p; nothing; end
-nb_params(fm::Weibull3FamilyModel) = 3
+nbparams(fm::Weibull3FamilyModel) = 3
 function Weibull3FamilyModel(α::Prior, β::Prior, δ::Prior)
     fm = Weibull3FamilyModel(0.0, 0.0, 0.0)
     fm.priors = [α, β, δ]

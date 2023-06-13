@@ -1,7 +1,9 @@
-function simulate(model::Model, stop::Union{Nothing, Real, Vector{Any}}; system::Int=1)::DataFrame
-    sim = simulator(model, stop)
+function simulate(model::Model, stop::Union{Nothing, Real, Vector{Any}}; system::Int=1, data_cov::DataFrame=DataFrame() )::DataFrame
+    sim = simulator(model, stop; data_cov::DataFrame=data_cov)
     return simulate(sim, system = system)
 end
+import Base.rand
+rand(model::Model, stop::Union{Nothing, Real, Vector{Any}}; system::Int=1)::DataFrame = simulate(model, stop; system = system)
 
 mutable struct Simulator
     model::Model
@@ -25,7 +27,6 @@ function init!(sim::Simulator)
     for mm in sim.model.models
         init!(mm)
     end
-    # size=cache_size_+1;cache_size=cache_size_;
     sim.model.id_mod=0 #// Since no maintenance is possible!
     sim.model.time = [0.0]
     sim.model.type = [-1]
@@ -41,15 +42,13 @@ function simulate(sim::Simulator, stop::Union{Nothing, Real, Vector{Any}}; syste
         init!(sim)
         run = true
         while run
-            u = log(rand(1)[1])::Float64
+            u = log(rand())::Float64
             if sim.model.nb_params_cov > 0
             #   u *= compute_covariates(sim) #;//set_current_system launched in R for simulation
             end
             timeCM = virtual_age_inverse(sim.model, inverse_cumulative_hazard_rate(sim.model.family, cumulative_hazard_rate(sim.model.family, virtual_age(sim.model,sim.model.time[sim.model.k]))-u))
-            ##println("timeCM=$timeCM")
             #   TODO: submodels
             id_mod = 0
-        #     # List timeAndTypePM;
             if has_maintenance_policy(sim.model)
                 timePM, typePM = update(sim.model.maintenance_policy, sim.model) # //# Peut-être ajout Vright comme argument de update
                 if timePM < timeCM && timePM < sim.model.time[sim.model.k]
@@ -67,12 +66,7 @@ function simulate(sim::Simulator, stop::Union{Nothing, Real, Vector{Any}}; syste
                 push!(sim.model.type, typePM)
                 id_mod=typePM
             end
-        #     #//printf("k=%d: cm=%lf,pm=%lf\n",model->k,timeCM,timePM);
-        #     #//# used in the next update
             update_Vleft!(sim.model) #, false,false)
-
-
-        #     #//# update the next k, and save model in model too!
             update_maintenance!(sim.model, id_mod) #false,false)
             run = ok(sim)
             ## TODO work on stop later
@@ -102,7 +96,7 @@ function ok(sim::Simulator)::Bool
 end
 
 function add_stop_policy!(sim::Simulator, stop::Union{Nothing, Real,Vector{Any}})
-    if isa(stop,Int)
+    if stop isa Int
         sim.stop_policy = Expr(:call, :<=, :s,  stop)
     elseif isnothing(stop)
         if isnothing(sim.stop_policy)

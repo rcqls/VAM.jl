@@ -33,16 +33,33 @@ else
     ex_f1.args[2].args[2:3]
 end
 VAM.parse_model(ex_f1)
-VAM.parse_model(ex_f2)
+VAM.isbayesian(VAM.parse_model(ex_f2))
 
 ex_f_b = :(Time & Type ~ (ARAInf(~Uniform()) | Weibull(~Uniform(),~Uniform(2,4))))
 m = VAM.parse_model(ex_f_b)
 m.models[1].priors[1]
-
-mutable struct A
-    dist::VAM.Prior
-end
+VAM.isbayesian(m)
 
 
-a = A(Uniform())
-a.dist = nothing
+res = VAM.parse_covariates(:(Weibull(0.001,2.5)))
+length(res)
+res[1] 
+
+ex_f_cov = :(time & type ~ (ARAInf(0.4) | Weibull(0.001,2.5, .3| 1*cov1)))
+#VAM.parse_model(ex_f_cov)
+ex_fm = ex_f_cov.args[3].args[3]
+res = VAM.parse_covariates(ex_fm)
+length(res)
+res[1]
+res[2]
+
+ex_fm.args
+index = findall(e -> Meta.isexpr(e,:call) && e.args[1] in [:|,:+], ex_fm.args)[1]
+vcat(ex_fm.args[1:index-1],ex_fm.args[index].args[2],Expr(:call,:+,ex_fm.args[index].args[3]))
+ 
+ex_f_cov = :(time & type ~ (ARAInf(0.4) | Weibull(0.001,2.5| 1*cov1 + -2cov2 + 3cov3)) )
+ex_fm = ex_f_cov.args[3].args[3]
+res = VAM.parse_covariates(ex_fm)
+length(res)
+res[1]
+res[2]

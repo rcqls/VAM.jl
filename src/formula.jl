@@ -108,9 +108,34 @@ function parse_bayesian_parameters!(ex::Expr)
     ex.args = map(e -> Meta.isexpr(e, :call) && e.args[1] == :~  ? e.args[2] : e , ex.args)
 end
 
+function parse_covariates(ex_fm::Expr)
+    ex = copy(ex_fm)
+    tmp = findall(e -> Meta.isexpr(e,:call) && e.args[1] in [:|,:+], ex_fm.args)
+    if !isempty(tmp)
+        index = tmp[1]
+        if ex.args[index].args[1] == :|
+            # Weibull(0.001,2.5| 1*cov1)
+            ex.args = vcat(ex_fm.args[1:index-1],ex_fm.args[index].args[2])
+            return (ex,Expr(:call,:+,ex_fm.args[index].args[3]))
+        elseif ex.args[index].args[1] == :+
+            # Weibull(0.001,2.5| 1*cov1 + -2cov2 + 3cov3)
+            ex.args = vcat(ex_fm.args[1:index-1],ex_fm.args[index].args[2].args[2])
+            return (ex, Expr(:call,:+,ex_fm.args[index].args[2].args[3],ex_fm.args[index].args[3:end]...))
+        end
+    end
+    return (ex,)
+end
+
 function add_family_model!(m::AbstractModel,ex_fm::Expr)
-    parse_bayesian_parameters!(ex_fm)
-    m.family = eval(complete_name!(ex_fm, 1, "FamilyModel"))
+    res = parse_covariates(ex_fm)
+    if length(res) == 1
+        parse_bayesian_parameters!(ex_fm)
+        m.family = eval(complete_name!(ex_fm, 1, "FamilyModel"))
+    elseif length(res) == 2
+        parse_bayesian_parameters!(res[1])
+        m.family = eval(complete_name!(res[1], 1, "FamilyModel"))
+        covariates!(m, res[2])
+    end
 end
 
 function add_maintenance_model!(m::AbstractModel,ex_mm::Expr)
@@ -133,22 +158,6 @@ end
 macro vam(ex_f)
     return parse_model(ex_f)
 end
-
-## TO REMOVE
-# macro sim(ex_f, ex_s)
-#     mod = parse_model(ex_f)
-#     sim = Sim(mod, formula_translate(ex_s))
-#     init!(sim.model)
-#     return sim
-# end
-
-# macro sim(ex_f)
-#     println(ex_f.args)
-#     mod = parse_model(ex_f)
-#     sim = Sim(mod, nothing)
-#     init!(sim.model)
-#     return sim
-# end
 
 macro stop(ex_s)
     return formula_translate(ex_s).args
