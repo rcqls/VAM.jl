@@ -76,6 +76,13 @@ function MLE(model::Model, data::DataFrame)::MLE
     return mle
 end
 
+function MLE(model::Model, data::DataFrame, datacov::DataFrame)::MLE
+    println("hreeeeee")
+    mle = MLE(model, data)
+    covariates!(mle.model)
+    covariates!(mle.model, datacov)
+    return mle
+end
 params(m::MLE)::Vector{Float64} = params(m.model)
 params!(m::MLE, θ::Vector{Float64}) = params!(m.model, θ)
 
@@ -135,7 +142,7 @@ function contrast(mle::MLE, θ::Vector{Float64}; profile::Bool=true)::Float64
     # //printf("System %d\n",1);
     select_data(mle.model, 1)
     if mle.model.nb_params_cov > 0 
-        select_current_system(mle.model, i, true)
+        select_current_system(mle.model, 1, true)
     end
     select_left_censor(mle, 1)
     contrast_current(mle)
@@ -259,7 +266,7 @@ function gradient(mle::MLE, θ::Vector{Float64}; profile::Bool=true)::Vector{Flo
     end
     np += mle.model.nb_params_maintenance
     if mle.model.nb_params_cov > 0
-        for i in 1:model.nb_params_cov
+        for i in 1:mle.model.nb_params_cov
             res[i + np] = -mle.comp.dS1[i + np - 1] * θ[1] + mle.comp.dS4[i]
         end
     end

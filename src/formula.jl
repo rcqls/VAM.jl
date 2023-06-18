@@ -94,7 +94,6 @@ function parse_cm!(m::AbstractModel,ex_cm::Expr)
         if isa(fm.args[2], Expr) && fm.args[2].head == :parameters
             # covariates
             fm2=Expr(:call, fm.args[1], fm.args[3:end]..., fm.args[2].args[1].args)
-            println(fm2)
             #m.family = eval(complete_name!(fm2, 1, "FamilyModel"))
             add_family_model!(m,fm2)
         else
@@ -110,17 +109,18 @@ end
 
 function parse_covariates(ex_fm::Expr)
     ex = copy(ex_fm)
-    tmp = findall(e -> Meta.isexpr(e,:call) && e.args[1] in [:|,:+], ex_fm.args)
+    tmp = findall(e -> Meta.isexpr(e,:call) && e.args[1] in [:|,:+, :-], ex_fm.args)
     if !isempty(tmp)
         index = tmp[1]
-        if ex.args[index].args[1] == :|
+        op = ex.args[index].args[1]
+        if op == :|
             # Weibull(0.001,2.5| 1*cov1)
             ex.args = vcat(ex_fm.args[1:index-1],ex_fm.args[index].args[2])
             return (ex,Expr(:call,:+,ex_fm.args[index].args[3]))
-        elseif ex.args[index].args[1] == :+
+        elseif op in  [:+, :-]
             # Weibull(0.001,2.5| 1*cov1 + -2cov2 + 3cov3)
             ex.args = vcat(ex_fm.args[1:index-1],ex_fm.args[index].args[2].args[2])
-            return (ex, Expr(:call,:+,ex_fm.args[index].args[2].args[3],ex_fm.args[index].args[3:end]...))
+            return (ex, Expr(:call, op, ex_fm.args[index].args[2].args[3],ex_fm.args[index].args[3:end]...))
         end
     end
     return (ex,)

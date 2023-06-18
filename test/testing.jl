@@ -19,7 +19,11 @@ function insert!(modtest::ModelTest, models::Vararg{Pair{Symbol, ModelDict}})
 	for model in models
 		m = model.second
 		if !(:r in  keys(m))
-			m[:r] = VAM.rterms(m[:vam], m[:data])
+			m[:r] = VAM.rterms(m[:vam], m[:data], (:datacov in keys(m)) ? m[:datacov] : DataFrame())
+			if :rform in keys(m)
+				m[:r][2] = m[:rform]
+			end
+
 		end
 		modtest.models[model.first] = m
 	end
@@ -27,15 +31,23 @@ end
 
 function update!(modtest::ModelTest, key::Symbol)
 	model = modtest.models[key]
-	data = model[:data]
+	println("update")
+	println(model[:vam])
 	θ=model[:θ]
 	result = Dict()
-	m = VAM.MLE(model[:vam], data)
+	m = if :datacov in keys(model)
+		VAM.MLE(model[:vam], model[:data], model[:datacov])
+	else
+		VAM.MLE(model[:vam], model[:data])
+	end
+	println("update2")
+	println(m.model)
 	R"""
 	require(VAM)
-	simData <- eval(parse(text=$(model[:r][1])))
+	dataDF <- eval(parse(text=$(model[:r][1])))
 	form <-  eval(parse(text=$(model[:r][2])))
-	mle <- mle.vam(form,data=simData)
+	covDF <- eval(parse(text=$(model[:r][3])))
+	mle <- mle.vam(form,data=dataDF, data.covariates=covDF)
 	theta <- $(model[:θ])
 	res <- list()
 	res$lnL <- logLik(mle,theta,TRUE,FALSE,FALSE)

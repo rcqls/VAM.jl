@@ -50,11 +50,17 @@ mutable struct Model <: AbstractModel
 	vars_cov::Vector{Symbol}
 	params_cov::Vector{Float64}
 	sum_cov::Float64 #to save the computation
+	expr_cov::Union{Nothing, Expr}
 
 	# Formula
 	formula::Expr
 
-	Model() = new()
+	Model() = begin
+		m = new()
+		# init!(m)
+		init_covariates!(m)
+		return m
+	end
 end
 
 function init!(m::Model)
@@ -78,15 +84,9 @@ function init!(m::Model)
 			cur_id_params += nbparams(mm)
 		end
 		m.nb_params_family = nbparams(m.family)
-		m.nb_params_cov = 0
 		m.mu = max_memory(m)
 
 		m.data=DataFrame[]
-
-		# Additional Covariates stuff
-		m.data_cov = DataFrame()
-		m.params_cov = Float64[]
-		m.sum_cov = 0 #to save the computation
 
 		## internal
 		m.time = Float64[]
@@ -117,6 +117,15 @@ function init!(m::Model)
 		end
 		m.comp = Compute(m)
 		return nothing
+end
+
+function init_covariates!(m::Model)
+	# Additional Covariates stuff
+	m.nb_params_cov = 0
+	m.data_cov = DataFrame()
+	m.params_cov = Float64[]
+	m.sum_cov = 0 #to save the computation
+	m.expr_cov = nothing
 end
 
 function inc!(m::Model)
@@ -329,23 +338,30 @@ end
 
 # //Covariates related
 function covariates!(m::Model,formula::Expr)
-	m.sum_cov = 0.0
-	m.params_cov = Parameter[]
-	m.vars_cov = Symbol[]
-	for (p, v) in map(x -> x.args[2:end], formula.args[2:end])
-		push!(m.params_cov, p)
-		push!(m.vars_cov, v)
+	if !isnothing(formula)
+		m.expr_cov = formula
+		m.params_cov = Parameter[]
+		m.vars_cov = Symbol[]
+		for (p, v) in map(x -> x.args[2:end], formula.args[2:end])
+			push!(m.params_cov, p)
+			push!(m.vars_cov, v)
+		end
+		m.nb_params_cov = length(m.params_cov)
 	end
-	m.nb_params_cov = length(m.params_cov)
 end
+
+covariates!(m::Model) = covariates!(m, m.expr_cov)
 
 function covariates!(m::Model, data::DataFrame) 
 	m.data_cov = data[!,m.vars_cov]
-	
+	m.nb_params_cov = size(m.data_cov)[2]
 end
 
 function compute_covariates(m::Model)
 	m.sum_cov = 0.0
+	println(m.params_cov)
+	println(m.data_cov)
+	println( (m.current_system, m.nb_params_cov, m.params_cov) )
 	for j in 1:m.nb_params_cov
 		m.sum_cov += m.params_cov[j] * m.data_cov[m.current_system, m.vars_cov[j]]
 		# //printf("syst=%d,j=%d,th=%lf,params_cov=%lf\n",current_system,j,params_cov[j],var[current_system]);
@@ -374,7 +390,7 @@ function isbayesian(m::Model)::Bool
 end
 
 # Used inside ModelTest do guess the r formula and RData
-function rterms(m::Model, data::DataFrame)
+function rterms(m::Model, data::DataFrame, datacov::DataFrame=DataFrame())
 	f = m.formula
 	df_rexpr = string("data.frame(", 
 		join(map(names(data)) do var
@@ -393,5 +409,14 @@ function rterms(m::Model, data::DataFrame)
 		model_str = string("(",f.args[3],")")
 	end
 	vam_repxr = replace(string(vars_str, " ~ ", replace( model_str  ,"FamilyModel" => "")),"∞" => "Inf")
-	[df_rexpr, vam_repxr]
+	dfcov_rexpr = if isempty(datacov)
+		"NULL"
+	else
+		string("data.frame(", 
+			join(map(names(datacov)) do var
+				string(var,"=c(",join(datacov[!,var],","),")")
+			end,","),
+		")")
+	end
+	[df_rexpr, vam_repxr, dfcov_rexpr]
 end

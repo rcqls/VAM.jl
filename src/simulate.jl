@@ -1,9 +1,9 @@
-function simulate(model::Model, stop::Union{Nothing, Real, Vector{Any}}; system::Int=1, data_cov::DataFrame=DataFrame() )::DataFrame
-    sim = simulator(model, stop; data_cov::DataFrame=data_cov)
-    return simulate(sim, system = system)
+function simulate(model::Model, stop::Union{Nothing, Real, Vector{Any}}; system::Int=1, data_cov::DataFrame=DataFrame())::DataFrame
+    sim = simulator(model, stop)
+    return simulate(sim, system = system, data_cov = data_cov)
 end
 import Base.rand
-rand(model::Model, stop::Union{Nothing, Real, Vector{Any}}; system::Int=1)::DataFrame = simulate(model, stop; system = system)
+rand(model::Model, stop::Union{Nothing, Real, Vector{Any}}; system::Int=1, data_cov::DataFrame=DataFrame())::DataFrame = simulate(model, stop; system = system, data_cov=data_cov)
 
 mutable struct Simulator
     model::Model
@@ -32,11 +32,18 @@ function init!(sim::Simulator)
     sim.model.type = [-1]
 end
 
-function simulate(sim::Simulator, stop::Union{Nothing, Real, Vector{Any}}; system::Int=1)::DataFrame
+function simulate(sim::Simulator, stop::Union{Nothing, Real, Vector{Any}}; system::Int=1, data_cov::DataFrame=DataFrame())::DataFrame
     add_stop_policy!(sim, stop)
     if has_maintenance_policy(sim.model)
         first(sim.model.maintenance_policy)
     end
+    if !isempty(data_cov)
+        covariates!(sim.model, data_cov)
+    end
+    if sim.model.nb_params_cov > 0
+        system = size(sim.model.data_cov)[1]
+    end
+
     data = DataFrame()
     for syst in 1:system
         init!(sim)
@@ -73,6 +80,7 @@ function simulate(sim::Simulator, stop::Union{Nothing, Real, Vector{Any}}; syste
         end
         data = vcat(data,DataFrame(system=syst, time=sim.model.time, type=sim.model.type))
     end
+    println(data)
     if system == 1
         data = data[:,[:time, :type]]
     end
@@ -85,7 +93,7 @@ function simulate(sim::Simulator, stop::Union{Nothing, Real, Vector{Any}}; syste
     df
 end
 
-simulate(sim::Simulator; system::Int=1) = simulate(sim, nothing, system=system)
+simulate(sim::Simulator; system::Int=1, data_cov::DataFrame=DataFrame()) = simulate(sim, nothing, system=system, data_cov = data_cov)
 
 function ok(sim::Simulator)::Bool
     s = length(sim.model.time) - 1 # 1st is 0 time to be removed when returned

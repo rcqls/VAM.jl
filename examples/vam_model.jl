@@ -63,3 +63,5 @@ res = VAM.parse_covariates(ex_fm)
 length(res)
 res[1]
 res[2]
+
+VAM.parse_covariates(:(Weibull(0.15,2.3|0.6*cov1-0.9*cov2)))
