@@ -248,11 +248,11 @@ function gradient(mle::MLE, θ::Vector{Float64}; profile::Bool=true)::Vector{Flo
         end
     end
     # compute gradient
-    θ[1] = !profile ? α : mle.comp.S0 / mle.comp.S1
+    θ[1] = profile ? mle.comp.S0 / mle.comp.S1 : α
 
     params!(mle.model, θ) # also memorize the current value for alpha which is not 1 in fact
 
-    res[1] = !profile ? mle.comp.S0/α - mle.comp.S1 : 0
+    res[1] = profile ? 0.0 : mle.comp.S0/α - mle.comp.S1
     
     np = 1
     for i in 1:(mle.model.nb_params_family - 1)
@@ -267,7 +267,8 @@ function gradient(mle::MLE, θ::Vector{Float64}; profile::Bool=true)::Vector{Flo
     np += mle.model.nb_params_maintenance
     if mle.model.nb_params_cov > 0
         for i in 1:mle.model.nb_params_cov
-            res[i + np] = -mle.comp.dS1[i + np - 1] * θ[1] + mle.comp.dS4[i]
+            res[i + np] = -mle.comp.dS1[i + np] * θ[1] + mle.comp.dS4[i]
+            println("jl: res[$(i + np)] = $(-mle.comp.dS1[i + np]) * $(θ[1]) + $(mle.comp.dS4[i])")
         end
     end
     θ[1] = α ## BIZARRE!
@@ -295,9 +296,11 @@ function gradient_current(mle::MLE)
     for i in 1:mle.model.nb_params_maintenance
         gradient_update_dS_maintenance(mle, i + np,i)
     end
-    np += mle.model.nb_params_cov
-    for i in 1:mle.model.nb_params_cov
-        gradient_update_dS_covariate(mle, i + np, i)
+    if mle.model.nb_params_cov > 1
+        np += mle.model.nb_params_cov
+        for i in 1:mle.model.nb_params_cov
+            gradient_update_dS_covariate(mle, i + np, i)
+        end
     end
 end
 
@@ -346,6 +349,7 @@ function gradient_update_dS_covariate(mle::MLE, i::Int, ii::Int)
     mle.comp.dS1[i] += mle.model.comp.S1 * cov * exp(mle.model.sum_cov)
     #//dS2[i]=0
     mle.comp.dS4[ii] += mle.model.comp.S0 * cov
+    println("jl: dS4[$ii]=$(mle.comp.dS4[ii])")
 end
 
 function hessian(mle::MLE, θ::Vector{Float64}; profile::Bool=true)::Matrix{Float64}
@@ -516,15 +520,17 @@ function hessian_current(mle::MLE)
         end
     end
     np += npc
-    for i in 1:npc
-        gradient_update_dS_covariate(mle, i + np, i)
-        for j in 1:(npf + npm)
-            ij = ind_ij(i + np, j)
-           mle.comp.d2S1[ij] += covariate(mle.model, i) * exp(mle.model.sum_cov) * mle.model.comp.dS1[j]
-        end
-        for j in (npf + npm + 1):i
-            ij = ind_ij(i + np, j)
-           mle.comp.d2S1[ij] += covariate(mle.model, i) * covariate(mle.model, j - npf - npm) * exp(mle.model.sum_cov) * mle.model.comp.S1
+    if npc > 0
+        for i in 1:npc
+            gradient_update_dS_covariate(mle, i + np, i)
+            for j in 1:(npf + npm)
+                ij = ind_ij(i + np, j)
+            #    mle.comp.d2S1[ij] += covariate(mle.model, i) * exp(mle.model.sum_cov) * mle.model.comp.dS1[j]
+            end
+            for j in (npf + npm + 1):i
+                ij = ind_ij(i + np, j)
+            mle.comp.d2S1[ij] += covariate(mle.model, i) * covariate(mle.model, j - npf - npm) * exp(mle.model.sum_cov) * mle.model.comp.S1
+            end
         end
     end
 end

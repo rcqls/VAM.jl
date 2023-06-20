@@ -359,9 +359,9 @@ end
 
 function compute_covariates(m::Model)
 	m.sum_cov = 0.0
-	println(m.params_cov)
-	println(m.data_cov)
-	println( (m.current_system, m.nb_params_cov, m.params_cov) )
+	# println(m.params_cov)
+	# println(m.data_cov)
+	# println( (m.current_system, m.nb_params_cov, m.params_cov) )
 	for j in 1:m.nb_params_cov
 		m.sum_cov += m.params_cov[j] * m.data_cov[m.current_system, m.vars_cov[j]]
 		# //printf("syst=%d,j=%d,th=%lf,params_cov=%lf\n",current_system,j,params_cov[j],var[current_system]);

@@ -31,8 +31,8 @@ end
 
 function update!(modtest::ModelTest, key::Symbol)
 	model = modtest.models[key]
-	println("update")
-	println(model[:vam])
+	# println("update")
+	# println(model[:vam])
 	θ=model[:θ]
 	result = Dict()
 	m = if :datacov in keys(model)
@@ -40,8 +40,8 @@ function update!(modtest::ModelTest, key::Symbol)
 	else
 		VAM.MLE(model[:vam], model[:data])
 	end
-	println("update2")
-	println(m.model)
+	# println("update2")
+	# println(m.model)
 	R"""
 	require(VAM)
 	dataDF <- eval(parse(text=$(model[:r][1])))
