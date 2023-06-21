@@ -39,9 +39,9 @@ contrast(mleCMPM,theta,FALSE,TRUE,FALSE))
 
 res = mle(m, p, df)
 res.params
-contrast(m, p, df; alpha_fixed = true)
-gradient(m, p, df; alpha_fixed = true)
-hessian(m, p, df; alpha_fixed = true)
+contrast(m, p, df; profile=false)
+gradient(m, p, df; profile=false)
+hessian(m, p, df; profile=false)
 contrast(m, p, df)
 gradient(m, p, df)
 hessian(m, p, df)

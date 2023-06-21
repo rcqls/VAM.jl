@@ -1,5 +1,5 @@
-function mle(model::Model, θ::Vector{Float64},  data::DataFrame; fixed::Union{Vector{Int},Vector{Bool}} = Bool[], method = Newton())
-    m = MLE(model, data)
+function mle(model::Model, θ::Vector{Float64},  data::DataFrame, datacov::DataFrame=DataFrame(); fixed::Union{Vector{Int},Vector{Bool}} = Bool[], method = Newton())
+    m = MLE(model, data, datacov)
     # Apply profile likelihood ony when α (at index 1) is not fixed
     profile = !(1 in fixed)
     # TODO: check boundary for fixed
@@ -35,12 +35,12 @@ function mle(model::Model, θ::Vector{Float64},  data::DataFrame; fixed::Union{V
     end
     p = θ
     p[unfixed] = Optim.minimizer(res)
-    return (θ = params(model), optim = res, fixed = fixed)
+    return (θ = params(model), optim = res, fixed = fixed, mle = m)
 end
 
-function mle(model::Model, data::DataFrame; fixed::Union{Vector{Int},Vector{Bool}} = Bool[], method = Newton())
+function mle(model::Model, data::DataFrame, datacov::DataFrame=DataFrame(); fixed::Union{Vector{Int},Vector{Bool}} = Bool[], method = Newton())
     θ = params(model)
-    mle(model, θ, data; fixed= fixed, method=method)
+    mle(model, θ, data, datacov; fixed=fixed, method=method)
 end
 
 function contrast(model::Model, θ::Vector{Float64}, data::DataFrame; profile::Bool=true)::Float64
@@ -77,10 +77,11 @@ function MLE(model::Model, data::DataFrame)::MLE
 end
 
 function MLE(model::Model, data::DataFrame, datacov::DataFrame)::MLE
-    println("hreeeeee")
     mle = MLE(model, data)
-    covariates!(mle.model)
-    covariates!(mle.model, datacov)
+    if !isempty(datacov)
+        covariates!(mle.model)
+        covariates!(mle.model, datacov)
+    end
     return mle
 end
 params(m::MLE)::Vector{Float64} = params(m.model)
@@ -179,6 +180,8 @@ function contrast(mle::MLE, θ::Vector{Float64}; profile::Bool=true)::Float64
     return res
 end
 
+contrast(mle::MLE; profile::Bool=true) = contrast(mle, params(mle); profile=profile)
+
 function contrast_current(mle::MLE)
     init_mle(mle)
     n = length(mle.model.time)
@@ -268,12 +271,14 @@ function gradient(mle::MLE, θ::Vector{Float64}; profile::Bool=true)::Vector{Flo
     if mle.model.nb_params_cov > 0
         for i in 1:mle.model.nb_params_cov
             res[i + np] = -mle.comp.dS1[i + np] * θ[1] + mle.comp.dS4[i]
-            println("jl: res[$(i + np)] = $(-mle.comp.dS1[i + np]) * $(θ[1]) + $(mle.comp.dS4[i])")
+            # println("jl: res[$(i + np)] = $(-mle.comp.dS1[i + np]) * $(θ[1]) + $(mle.comp.dS4[i])")
         end
     end
     θ[1] = α ## BIZARRE!
     return res
 end
+
+gradient(mle::MLE; profile::Bool=true) = gradient(mle, params(mle); profile=profile)
 
 function gradient_current(mle::MLE)
     init_mle(mle, deriv = true)
@@ -349,7 +354,7 @@ function gradient_update_dS_covariate(mle::MLE, i::Int, ii::Int)
     mle.comp.dS1[i] += mle.model.comp.S1 * cov * exp(mle.model.sum_cov)
     #//dS2[i]=0
     mle.comp.dS4[ii] += mle.model.comp.S0 * cov
-    println("jl: dS4[$ii]=$(mle.comp.dS4[ii])")
+    # println("jl: dS4[$ii]=$(mle.comp.dS4[ii])")
 end
 
 function hessian(mle::MLE, θ::Vector{Float64}; profile::Bool=true)::Matrix{Float64}
@@ -477,6 +482,8 @@ function hessian(mle::MLE, θ::Vector{Float64}; profile::Bool=true)::Matrix{Floa
     return res
 end
 
+hessian(mle::MLE; profile::Bool=true) = hessian(mle, params(mle); profile=profile)
+
 function hessian_current(mle::MLE)
     npf, npm, npc = mle.model.nb_params_family - 1, mle.model.nb_params_maintenance, mle.model.nb_params_cov
     init_mle(mle, deriv = true)
@@ -525,11 +532,11 @@ function hessian_current(mle::MLE)
             gradient_update_dS_covariate(mle, i + np, i)
             for j in 1:(npf + npm)
                 ij = ind_ij(i + np, j)
-            #    mle.comp.d2S1[ij] += covariate(mle.model, i) * exp(mle.model.sum_cov) * mle.model.comp.dS1[j]
+            #TODO DEBUG: mle.comp.d2S1[ij] += covariate(mle.model, i) * exp(mle.model.sum_cov) * mle.model.comp.dS1[j]
             end
             for j in (npf + npm + 1):i
                 ij = ind_ij(i + np, j)
-            mle.comp.d2S1[ij] += covariate(mle.model, i) * covariate(mle.model, j - npf - npm) * exp(mle.model.sum_cov) * mle.model.comp.S1
+            #TODO DEBUG: mle.comp.d2S1[ij] += covariate(mle.model, i) * covariate(mle.model, j - npf - npm) * exp(mle.model.sum_cov) * mle.model.comp.S1
             end
         end
     end

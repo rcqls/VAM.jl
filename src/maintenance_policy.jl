@@ -24,7 +24,7 @@ function update_external_model(mp::MaintenancePolicyWithExternalModel, model::Ab
             update!(mod.models[mod.idMod], mod) #,false,false)
         end
         if model.nb_paramsCov > 0
-            mod.data_cov=model.data_cov
+            mod.datacov=model.datacov
             mod.params_cov=model.params_cov
             mod.nb_paramsCov=model.nb_params_cov
         end

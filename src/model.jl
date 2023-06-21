@@ -46,7 +46,7 @@ mutable struct Model <: AbstractModel
 	comp::Compute
 
 	# Additional Covariates stuff
-	data_cov::DataFrame
+	datacov::DataFrame
 	vars_cov::Vector{Symbol}
 	params_cov::Vector{Float64}
 	sum_cov::Float64 #to save the computation
@@ -122,8 +122,8 @@ end
 function init_covariates!(m::Model)
 	# Additional Covariates stuff
 	m.nb_params_cov = 0
-	m.data_cov = DataFrame()
-	m.params_cov = Float64[]
+	m.datacov = DataFrame()
+	m.params_cov = Parameter[]
 	m.sum_cov = 0 #to save the computation
 	m.expr_cov = nothing
 end
@@ -135,7 +135,7 @@ end
 
 nbparams(m::Model)::Int = m.nb_params_family + m.nb_params_maintenance + n.nb_params_cov
 
-params(m::Model)::Parameters = cat(params(m.family),(map(m.models) do mm;params(mm); end)...,dims=1)
+params(m::Model)::Parameters = cat(params(m.family),(map(m.models) do mm;params(mm); end)...,m.params_cov,dims=1)
 
 function params!(m::Model, θ::Vector{Float64})
 	from, to = 1, nbparams(m.family)
@@ -146,6 +146,10 @@ function params!(m::Model, θ::Vector{Float64})
 			to = from + nbparams(mm) - 1
 			params!(mm, θ[from:to])
 		end
+	end
+	if m.nb_params_cov > 0
+		from = to + 1
+		to = from + m.nb_params_cov - 1
 	end
 end
 
@@ -353,23 +357,23 @@ end
 covariates!(m::Model) = covariates!(m, m.expr_cov)
 
 function covariates!(m::Model, data::DataFrame) 
-	m.data_cov = data[!,m.vars_cov]
-	m.nb_params_cov = size(m.data_cov)[2]
+	m.datacov = data[!,m.vars_cov]
+	m.nb_params_cov = size(m.datacov)[2]
 end
 
 function compute_covariates(m::Model)
 	m.sum_cov = 0.0
 	# println(m.params_cov)
-	# println(m.data_cov)
+	# println(m.datacov)
 	# println( (m.current_system, m.nb_params_cov, m.params_cov) )
 	for j in 1:m.nb_params_cov
-		m.sum_cov += m.params_cov[j] * m.data_cov[m.current_system, m.vars_cov[j]]
+		m.sum_cov += m.params_cov[j] * m.datacov[m.current_system, m.vars_cov[j]]
 		# //printf("syst=%d,j=%d,th=%lf,params_cov=%lf\n",current_system,j,params_cov[j],var[current_system]);
 	end
 	return m.sum_cov
 end
 
-covariate(m::Model, j::Int) = m.data_cov[m.current_system, j]
+covariate(m::Model, j::Int) = m.datacov[m.current_system, j]
 
 has_maintenance_policy(m::Model)::Bool = isdefined(m,:maintenance_policy) #|| !isnothing(m.maintenance_policy)
 
