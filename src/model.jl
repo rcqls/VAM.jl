@@ -133,7 +133,7 @@ function inc!(m::Model)
 	m.Δt = m.time[m.k] - m.time[m.k - 1]
 end
 
-nbparams(m::Model)::Int = m.nb_params_family + m.nb_params_maintenance + n.nb_params_cov
+nbparams(m::Model)::Int = m.nb_params_family + m.nb_params_maintenance + m.nb_params_cov
 
 params(m::Model)::Parameters = cat(params(m.family),(map(m.models) do mm;params(mm); end)...,m.params_cov,dims=1)
 
@@ -148,8 +148,9 @@ function params!(m::Model, θ::Vector{Float64})
 		end
 	end
 	if m.nb_params_cov > 0
-		from = to + 1
-		to = from + m.nb_params_cov - 1
+		for i in 1:m.nb_params_cov
+			m.params_cov[i] = θ[to + i]
+		end
 	end
 end
 
@@ -239,19 +240,20 @@ function data!(m::Model,data::Union{DataFrame,Vector{DataFrame}})
 			end
 		end
 	end
-	select_data(m,1) #;//default when only one system no need to
+	data!(m,1) #;//default when only one system no need to
 end
 
-function select_data(m::Model, i::Int)
+function data!(m::Model, i::Int)
 	if length(m.data) >= i
 		data=m.data[i]
 		m.time = data[!,1]
 		m.type = data[!,2]
+		m.current_system = i
 	end
 end
 
-function selected_data(m::Model, i::Int)::DataFrame
-	select_data(m, i) #;//Skipped if data is unset (see above)
+function data(m::Model, i::Int)::DataFrame
+	data!(m, i) #;//Skipped if data is unset (see above)
 	return DataFrame(time=m.time,type=m.type)
 end
 

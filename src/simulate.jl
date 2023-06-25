@@ -1,23 +1,23 @@
-function simulate(model::Model, stop::Union{Nothing, Real, Vector{Any}}; system::Int=1, datacov::DataFrame=DataFrame())::DataFrame
+function simulate(model::Model, stop::Union{Nothing, Int, Vector{Any}}; system::Int=1, datacov::DataFrame=DataFrame())::DataFrame
     sim = simulator(model, stop)
     return simulate(sim, system = system, datacov = datacov)
 end
 import Base.rand
-rand(model::Model, stop::Union{Nothing, Real, Vector{Any}}; system::Int=1, datacov::DataFrame=DataFrame())::DataFrame = simulate(model, stop; system = system, datacov=datacov)
+rand(model::Model, stop::Union{Nothing, Int, Vector{Any}}; system::Int=1, datacov::DataFrame=DataFrame())::DataFrame = simulate(model, stop; system = system, datacov=datacov)
 
 mutable struct Simulator
     model::Model
     stop_policy::Union{Nothing,Expr}
 end
 
-function simulator(model::Model, stop::Union{Nothing, Real, Vector{Any}})::Simulator
+function simulator(model::Model, stop::Union{Nothing, Int, Vector{Any}})::Simulator
     sim = Simulator(model, nothing)
     add_stop_policy!(sim, stop)
     init!(sim.model)
     return sim
 end
 
-sim(model::Model, stop::Union{Nothing, Real, Vector{Any}})::Simulator = simulator(model, stop)
+sim(model::Model, stop::Union{Nothing, Int, Vector{Any}})::Simulator = simulator(model, stop)
 
 function init!(sim::Simulator)
     #// Almost everything in the 5 following lines are defined in model->init_computation_values() (but this last one initializes more than this 5 lines)
@@ -32,7 +32,7 @@ function init!(sim::Simulator)
     sim.model.type = [-1]
 end
 
-function simulate(sim::Simulator, stop::Union{Nothing, Real, Vector{Any}}; system::Int=1, datacov::DataFrame=DataFrame())::DataFrame
+function simulate(sim::Simulator, stop::Union{Nothing, Int, Vector{Any}}; system::Int=1, datacov::DataFrame=DataFrame())::DataFrame
     add_stop_policy!(sim, stop)
     if has_maintenance_policy(sim.model)
         first(sim.model.maintenance_policy)
@@ -103,7 +103,7 @@ function ok(sim::Simulator)::Bool
     eval(sim.stop_policy)
 end
 
-function add_stop_policy!(sim::Simulator, stop::Union{Nothing, Real,Vector{Any}})
+function add_stop_policy!(sim::Simulator, stop::Union{Nothing, Int,Vector{Any}})
     if stop isa Int
         sim.stop_policy = Expr(:call, :<=, :s,  stop)
     elseif isnothing(stop)

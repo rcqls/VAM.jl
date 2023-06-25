@@ -15,5 +15,5 @@ res <- coef(AMC_mle)
 
 m = @vam(Time & Type ~ (ARA∞(0.6) | Weibull(1.0,3.0)))
 mle(m, AMC_Amb)
-params(m)
+VAM.params(m)
 sum(abs.(res .- params(m)))

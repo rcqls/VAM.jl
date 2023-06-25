@@ -24,7 +24,9 @@ function mle(model::Model, θ::Vector{Float64},  data::DataFrame, datacov::DataF
         storage .= -dlnL[unfixed]
     end
     res = nothing
-    if method isa Optim.FirstOrderOptimizer
+    if method isa Optim.ZerothOrderOptimizer
+        res = optimize(f, p, method=method)
+    elseif method isa Optim.FirstOrderOptimizer
         res = optimize(f, g!, p, method=method)
     elseif method isa Optim.SecondOrderOptimizer
         function h!(storage, θ′)
@@ -43,20 +45,26 @@ function mle(model::Model, data::DataFrame, datacov::DataFrame=DataFrame(); fixe
     mle(model, θ, data, datacov; fixed=fixed, method=method)
 end
 
-function contrast(model::Model, θ::Vector{Float64}, data::DataFrame; profile::Bool=true)::Float64
-        m = MLE(model, data)
+function contrast(model::Model, θ::Vector{Float64}, data::DataFrame; profile::Bool=true, datacov::DataFrame=DataFrame())::Float64
+        m = MLE(model, data, datacov)
         return contrast(m, θ, profile = profile)
 end
 
-function gradient(model::Model, θ::Vector{Float64}, data::DataFrame; profile::Bool=true)::Vector{Float64}
-    m = MLE(model, data)
+contrast(model::Model, data::DataFrame; profile::Bool=true, datacov::DataFrame=DataFrame()) = contrast(model, params(model), data; profile = profile, datacov = datacov)
+
+function gradient(model::Model, θ::Vector{Float64}, data::DataFrame; profile::Bool=true, datacov::DataFrame=DataFrame())::Vector{Float64}
+    m = MLE(model, data, datacov)
     return gradient(m, θ, profile = profile)
 end
 
-function hessian(model::Model, θ::Vector{Float64}, data::DataFrame; profile::Bool=true)::Matrix{Float64}
-    m = MLE(model, data)
+gradient(model::Model, data::DataFrame; profile::Bool=true, datacov::DataFrame=DataFrame()) = gradient(model, params(model), data; profile = profile, datacov = datacov)
+
+function hessian(model::Model, θ::Vector{Float64}, data::DataFrame; profile::Bool=true, datacov::DataFrame=DataFrame())::Matrix{Float64}
+    m = MLE(model, data, datacov)
     return hessian(m, θ, profile = profile)
 end
+
+hessian(model::Model, data::DataFrame; profile::Bool=true, datacov::DataFrame=DataFrame()) = hessian(model, params(model), data; profile = profile, datacov = datacov)
 
 mutable struct MLE
     model::Model
@@ -100,7 +108,7 @@ function select_left_censor(mle::MLE, i::Int)
 end
 
 # Rcpp -> init_mle_vam_for_current_system
-function init_mle(mle::MLE; deriv::Bool=false)
+function init_mle(mle::MLE; gradient::Bool=false)
     for mm in mle.model.models
         init!(mm)
     end
@@ -111,14 +119,14 @@ function init_mle(mle::MLE; deriv::Bool=false)
     mle.model.k = 1
     mle.model.id_mod = 0 #id of current model
     mle.model.id_params = 1
-    init!(mle.model.comp, deriv=deriv)
+    init!(mle.model.comp, deriv=gradient)
 
     for type in mle.model.type
         if type < 0 
             mle.model.comp.S0 += 1
         end
     end
-    if deriv
+    if gradient
         # mle.model.dVright = zeros(mle.model.comp.nbd)
         # mle.model.dA = zeros(mle.model.comp.nbd)
         # nb2m = mle.model.nb_params_maintenance * (mle.model.nb_params_maintenance + 1) ÷ 2
@@ -141,20 +149,18 @@ function contrast(mle::MLE, θ::Vector{Float64}; profile::Bool=true)::Float64
 
     params!(mle.model,θ);
     # //printf("System %d\n",1);
-    select_data(mle.model, 1)
-    if mle.model.nb_params_cov > 0 
-        select_current_system(mle.model, 1, true)
-    end
+    data!(mle.model, 1)
+    mle.model.nb_params_cov > 0 && select_current_system(mle.model, 1, true)
     select_left_censor(mle, 1)
+    debugprint("Contrast System 1")
     contrast_current(mle)
     # //only if multi-system
     if mle.model.nb_system > 1
         for i in 2:mle.model.nb_system 
-            #//printf("System %d\n",i+1);
-            select_data(mle.model, i)
-            if mle.model.nb_params_cov > 0 
-                select_current_system(mle.model, i, true)
-            end
+            #
+            debugprint("Contrast System $i");
+            data!(mle.model, i)
+            mle.model.nb_params_cov > 0 && select_current_system(mle.model, i, true)
             select_left_censor(mle, i)
             contrast_current(mle)
         end
@@ -172,9 +178,7 @@ function contrast(mle::MLE, θ::Vector{Float64}; profile::Bool=true)::Float64
         res = log(α) * mle.comp.S0 + mle.comp.S2 - α * mle.comp.S1 + mle.comp.S3
         params!(mle.model, θ) #//also memorize the current value for alpha which is not 1 in fact
     end
-    if mle.model.nb_params_cov > 0 
-        res += mle.comp.S4
-    end
+    mle.model.nb_params_cov > 0 && (res += mle.comp.S4)
 
     θ[1] = α #//LD:changed for bayesian
     return res
@@ -199,9 +203,10 @@ function contrast_current(mle::MLE)
     contrast_update_S(mle)
 end
 
-function contrast_update_current(mle::MLE; deriv::Bool=false)
-    update_Vleft!(mle.model, gradient=deriv, hessian=deriv)
+function contrast_update_current(mle::MLE; gradient::Bool=false, hessian::Bool=false)
+    update_Vleft!(mle.model, gradient=gradient, hessian=hessian)
     mle.model.hVleft = hazard_rate(mle.model.family, mle.model.Vleft)
+    debugprint("jl ($gradient, $hessian): hVleft=$(mle.model.hVleft) $(params(mle))")
     mle.model.indType = (mle.model.type[mle.model.k + 1] < 0 ? 1.0 : 0.0)
     if mle.model.k >= mle.left_censor 
         mle.model.comp.S1 += cumulative_hazard_rate(mle.model.family, mle.model.Vleft) - cumulative_hazard_rate(mle.model.family, mle.model.Vright)
@@ -233,19 +238,17 @@ function gradient(mle::MLE, θ::Vector{Float64}; profile::Bool=true)::Vector{Flo
     θ[1]=1
     init!(mle.comp, deriv = true)
     params!(mle.model, θ)
-    select_data(mle.model, 1)
-    if mle.model.nb_params_cov > 0 
-        select_current_system(mle.model, 1, true)
-    end
+    data!(mle.model, 1)
+    debugprint("gradient System 1")
+    mle.model.nb_params_cov > 0 && select_current_system(mle.model, 1, true)
     select_left_censor(mle, 1)
     gradient_current(mle)
     # //only if multi-system
     if mle.model.nb_system > 1
         for i in 2:mle.model.nb_system 
-            select_data(mle.model, i)
-            if mle.model.nb_params_cov > 0 
-                select_current_system(mle.model, i, true)
-            end
+            data!(mle.model, i)
+            debugprint("gradient System $i")
+            mle.model.nb_params_cov > 0 && select_current_system(mle.model, i, true)
             select_left_censor(mle, i)
             gradient_current(mle)
         end
@@ -281,7 +284,7 @@ end
 gradient(mle::MLE; profile::Bool=true) = gradient(mle, params(mle); profile=profile)
 
 function gradient_current(mle::MLE)
-    init_mle(mle, deriv = true)
+    init_mle(mle, gradient = true)
     n = length(mle.model.time)
     while mle.model.k < n
         gradient_update_current(mle)
@@ -310,7 +313,7 @@ function gradient_current(mle::MLE)
 end
 
 function gradient_update_current(mle::MLE)
-    contrast_update_current(mle, deriv =true)
+    contrast_update_current(mle, gradient =true)
 
     cumhVright_param_derivative = cumulative_hazard_rate_param_derivative(mle.model.family, mle.model.Vright, true)
     cumhVleft_param_derivative=cumulative_hazard_rate_param_derivative(mle.model.family, mle.model.Vleft, false)
@@ -364,20 +367,18 @@ function hessian(mle::MLE, θ::Vector{Float64}; profile::Bool=true)::Matrix{Floa
     θ[1]=1
     init!(mle.comp, deriv = true)
     params!(mle.model, θ)
-    select_data(mle.model, 1)
-    if mle.model.nb_params_cov > 0 
-        select_current_system(mle.model, 1, true)
-    end
+    data!(mle.model, 1)
+    debugprint("hessian System 1")
+    mle.model.nb_params_cov > 0 && select_current_system(mle.model, 1, true)
     select_left_censor(mle, 1)
     hessian_current(mle)
 
     # //only if multi-system
     if mle.model.nb_system > 1
         for i in 2:mle.model.nb_system 
-            select_data(mle.model, i)
-            if mle.model.nb_params_cov > 0 
-                select_current_system(mle.model, i, true)
-            end
+            data!(mle.model, i)
+            debugprint("hessian System $i")
+            mle.model.nb_params_cov > 0 && select_current_system(mle.model, i, true)
             select_left_censor(mle, i)
             hessian_current(mle)
         end
@@ -486,7 +487,7 @@ hessian(mle::MLE; profile::Bool=true) = hessian(mle, params(mle); profile=profil
 
 function hessian_current(mle::MLE)
     npf, npm, npc = mle.model.nb_params_family - 1, mle.model.nb_params_maintenance, mle.model.nb_params_cov
-    init_mle(mle, deriv = true)
+    init_mle(mle, gradient = true)
     n = length(mle.model.time)
     while mle.model.k < n
         hessian_update_current(mle)
@@ -545,7 +546,7 @@ end
 function hessian_update_current(mle::MLE)
     npf = mle.model.nb_params_family - 1
     npm = mle.model.nb_params_maintenance
-    contrast_update_current(mle, deriv =true)
+    contrast_update_current(mle, gradient =true, hessian = true)
 
     cumhVright_param_derivative = cumulative_hazard_rate_param_derivative(mle.model.family, mle.model.Vright, true)
     cumhVleft_param_derivative = cumulative_hazard_rate_param_derivative(mle.model.family, mle.model.Vleft, false)
@@ -606,6 +607,9 @@ function αEst(mle::MLE, param::Vector{Float64})
     contrast(mle, param) #//To compute mle.comp.S1 and S0
     return mle.comp.S0 / mle.comp.S1
 end
+
+data!(mle::MLE, i::Int) = data!(mle.model, i)
+data(mle::MLE) = data(mle.model)
 
 #     //delegate from model cache!
 #     List get_virtual_age_infos(double by,double from, double to) {
